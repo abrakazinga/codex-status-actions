@@ -38,17 +38,6 @@ export function isThreadId(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
-export function normalizeTitle(
-  value: string | null | undefined,
-  cwd: string | undefined,
-  id: string
-): string {
-  const normalized = value?.replace(/\s+/g, " ").trim();
-  if (normalized) return normalized;
-  if (cwd) return path.basename(cwd);
-  return `Task ${id.slice(0, 8)}`;
-}
-
 export function sleep(milliseconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }

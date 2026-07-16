@@ -6,17 +6,14 @@ import { z } from "zod";
 
 import { PLUGIN_VERSION } from "../constants";
 import type { ThreadRecord } from "../types";
-import { findCodexBinary, normalizeTitle, toErrorMessage } from "../util";
+import { findCodexBinary, toErrorMessage } from "../util";
 
 const threadSchema = z.object({
   id: z.string(),
   parentThreadId: z.string().nullable().optional(),
-  preview: z.string().default(""),
   ephemeral: z.boolean().default(false),
   updatedAt: z.number(),
-  recencyAt: z.number().nullable().optional(),
-  cwd: z.string(),
-  name: z.string().nullable().optional()
+  recencyAt: z.number().nullable().optional()
 });
 
 const threadListSchema = z.object({
@@ -116,7 +113,6 @@ export class AppServerClient extends EventEmitter {
       for (const thread of page.data) {
         records.push({
           id: thread.id,
-          title: normalizeTitle(thread.name ?? thread.preview, thread.cwd, thread.id),
           updatedAt: (thread.recencyAt ?? thread.updatedAt) * 1_000,
           ephemeral: thread.ephemeral,
           ...(thread.parentThreadId ? { parentThreadId: thread.parentThreadId } : {})

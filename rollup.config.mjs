@@ -7,6 +7,12 @@ import url from "node:url";
 
 const isWatching = Boolean(process.env.ROLLUP_WATCH);
 const pluginDirectory = "com.abrakazinga.codex-status-actions.sdPlugin";
+const watchedPluginFiles = [
+  "manifest.json",
+  "ui/property-inspector.css",
+  "ui/property-inspector.html",
+  "ui/property-inspector.js"
+];
 
 /** @type {import("rollup").RollupOptions} */
 export default {
@@ -23,8 +29,7 @@ export default {
     {
       name: "watch-plugin-files",
       buildStart() {
-        this.addWatchFile(`${pluginDirectory}/manifest.json`);
-        this.addWatchFile(`${pluginDirectory}/ui/property-inspector.html`);
+        for (const file of watchedPluginFiles) this.addWatchFile(`${pluginDirectory}/${file}`);
       }
     },
     typescript({ mapRoot: isWatching ? "./" : undefined }),

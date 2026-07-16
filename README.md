@@ -14,7 +14,7 @@ The `Codex Status` action can be placed on one or many keys. Tiles start in rece
 | Orange     | Codex needs an approval or answer                          |
 | Red        | The task or integration reported an error                  |
 
-Each tile shows its rank in the top-right and a one-line state/task debug label along the bottom.
+Each tile is a quiet signal light: a centered status-colored circle on a transparent surface, without labels or rank numbers.
 
 ## Requirements
 

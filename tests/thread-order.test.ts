@@ -22,5 +22,5 @@ describe("thread order", () => {
 });
 
 function thread(id: string, updatedAt: number): ThreadRecord {
-  return { id, title: id, updatedAt, ephemeral: false };
+  return { id, updatedAt, ephemeral: false };
 }

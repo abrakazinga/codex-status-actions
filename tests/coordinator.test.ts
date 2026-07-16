@@ -20,6 +20,12 @@ describe("status coordinator settings", () => {
       enhancedStatusEnabled: false,
       codexHome: "/tmp/codex-home"
     });
+
+    coordinator.markNavigation(false, "Sensitive /private/path and task ID");
+    const diagnostics = coordinator.diagnostics();
+    expect(JSON.parse(diagnostics)).toMatchObject({ isCustomCodexHomeConfigured: true });
+    expect(diagnostics).not.toContain("/tmp/codex-home");
+    expect(diagnostics).not.toContain("Sensitive /private/path and task ID");
   });
 
   it("falls back to safe defaults for malformed settings", () => {
@@ -28,6 +34,8 @@ describe("status coordinator settings", () => {
       () => Promise.resolve(),
       () => undefined
     );
-    expect(coordinator.propertySnapshot().settings).toEqual({ enhancedStatusEnabled: true });
+    expect(coordinator.propertySnapshot().settings).toEqual({
+      enhancedStatusEnabled: true
+    });
   });
 });

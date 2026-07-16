@@ -19,7 +19,6 @@ describe("app-server client", () => {
     expect(threads).toEqual([
       expect.objectContaining({
         id: "019f6b6d-644d-7701-8858-9da6837aaaaa",
-        title: "Fake task",
         updatedAt: 2_000
       })
     ]);

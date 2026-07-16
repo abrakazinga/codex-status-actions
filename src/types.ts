@@ -10,7 +10,6 @@ export interface TaskNavigator {
 
 export interface ThreadRecord {
   id: string;
-  title: string;
   updatedAt: number;
   parentThreadId?: string;
   ephemeral: boolean;

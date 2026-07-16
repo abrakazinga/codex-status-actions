@@ -171,8 +171,15 @@ export class StatusCoordinator {
         pluginVersion: PLUGIN_VERSION,
         platform: process.platform,
         architecture: process.arch,
-        codexHome: this.codexHome,
-        health: this.health,
+        isCustomCodexHomeConfigured: Boolean(this.settings.codexHome || process.env.CODEX_HOME),
+        health: {
+          codexBinary: this.health.codexBinary,
+          catalog: this.health.catalog,
+          rolloutWatcher: this.health.rolloutWatcher,
+          hooks: this.health.hooks,
+          navigation: this.health.navigation,
+          restartRequired: this.health.restartRequired
+        },
         taskCount: this.threads.size,
         hookCount: this.hookCount,
         enhancedStatusEnabled: this.settings.enhancedStatusEnabled

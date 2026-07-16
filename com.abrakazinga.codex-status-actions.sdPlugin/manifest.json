@@ -9,6 +9,7 @@
       "Icon": "imgs/actions/status/icon",
       "Tooltip": "Shows a local Codex task in a stable, turn-driven queue.",
       "PropertyInspectorPath": "ui/property-inspector.html",
+      "UserTitleEnabled": false,
       "Controllers": ["Keypad"],
       "States": [
         {

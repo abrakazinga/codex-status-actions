@@ -178,16 +178,16 @@ export class StatusTileAction extends SingletonAction<ActionSettings> {
 
     const results = await Promise.allSettled(
       [...this.visibleActions].map(async ([contextId, key]) => {
-        const { rank = 1, snapshot } = assignments.get(contextId) ?? {};
+        const { snapshot } = assignments.get(contextId) ?? {};
         let renderedSnapshot: ThreadStatusSnapshot | undefined;
         let image: string;
         if (coordinator?.unavailable) {
-          image = renderIntegrationError(rank);
+          image = renderIntegrationError();
         } else if (snapshot) {
           renderedSnapshot = snapshot;
-          image = renderStatusTile(snapshot.state, snapshot.thread.title, rank);
+          image = renderStatusTile(snapshot.state);
         } else {
-          image = renderEmptyTile(rank);
+          image = renderEmptyTile();
         }
         if (this.renderedImages.get(contextId) === image) {
           this.setRenderedThread(contextId, renderedSnapshot);
