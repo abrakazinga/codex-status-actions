@@ -12,20 +12,11 @@ export interface TileAssignment {
   snapshot?: ThreadStatusSnapshot;
 }
 
-export function sortRecentThreads(threads: Iterable<ThreadStatusSnapshot>): ThreadStatusSnapshot[] {
-  return [...threads]
-    .filter(({ thread }) => !thread.archived && !thread.ephemeral && !thread.parentThreadId)
-    .sort((left, right) => {
-      const recency = right.thread.updatedAt - left.thread.updatedAt;
-      return recency || left.thread.id.localeCompare(right.thread.id);
-    });
-}
-
-export function assignMostRecent(
+export function assignInOrder(
   tiles: Iterable<TilePosition>,
   threads: Iterable<ThreadStatusSnapshot>
 ): Map<string, TileAssignment> {
-  const recent = sortRecentThreads(threads);
+  const ordered = [...threads];
   const byDevice = new Map<string, TilePosition[]>();
 
   for (const tile of tiles) {
@@ -40,7 +31,7 @@ export function assignMostRecent(
       (a, b) => a.row - b.row || a.column - b.column || a.contextId.localeCompare(b.contextId)
     );
     deviceTiles.forEach((tile, index) => {
-      const snapshot = recent[index];
+      const snapshot = ordered[index];
       result.set(tile.contextId, {
         rank: index + 1,
         ...(snapshot ? { snapshot } : {})

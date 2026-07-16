@@ -117,9 +117,7 @@ export class AppServerClient extends EventEmitter {
         records.push({
           id: thread.id,
           title: normalizeTitle(thread.name ?? thread.preview, thread.cwd, thread.id),
-          cwd: thread.cwd,
           updatedAt: (thread.recencyAt ?? thread.updatedAt) * 1_000,
-          archived: false,
           ephemeral: thread.ephemeral,
           ...(thread.parentThreadId ? { parentThreadId: thread.parentThreadId } : {})
         });

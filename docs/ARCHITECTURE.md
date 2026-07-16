@@ -6,7 +6,7 @@ The Stream Deck Node process owns all integration components. There is no separa
 
 ```text
 Codex app-server (child process) ─ task metadata ─┐
-                                                  ├─ status coordinator ─ recent assignment ─ Stream Deck keys
+                                                  ├─ status coordinator ─ stable turn queue ─ Stream Deck keys
 $CODEX_HOME/sessions ─ rollout watcher ──────────┤
                                                   │
 Codex hooks ─ reduced Unix-socket events ─────────┘
@@ -40,9 +40,9 @@ The helper reduces hook input before forwarding it. `HookServer` accepts only a 
 
 ### Assignment and rendering
 
-Every visible device is ranked independently. Visible key coordinates are sorted row-major and paired with top-level tasks sorted by effective recency, with thread ID as a deterministic tie breaker.
+Every visible device is ranked independently. Visible key coordinates are sorted row-major and paired with a persisted top-level task queue. The first catalog load seeds that queue by recency with a deterministic thread-ID tie breaker. Only a new turn promotes an existing task to the front; ordinary activity, status transitions, completions, and catalog metadata refreshes preserve the order. New catalog entries append to the queue, while archived or removed tasks drop out.
 
-Each key receives a complete 144×144 SVG. The plugin caches the last SVG per context to avoid redundant Stream Deck updates.
+Each key receives a minimal 144×144 SVG data URI containing only its state color, rank, and one-line debug label. The plugin caches the last image per context to avoid redundant Stream Deck updates.
 
 ### Navigation
 
@@ -54,6 +54,7 @@ Stream Deck global settings contain:
 
 - the enhanced-status toggle and optional `CODEX_HOME`
 - rollout byte offsets
+- stable task order
 - completion and acknowledgement IDs
 - terminal error markers
 

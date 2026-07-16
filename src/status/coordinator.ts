@@ -4,9 +4,10 @@ import { z } from "zod";
 
 import { AppServerClient } from "../codex/app-server-client";
 import { RolloutWatcher, type ParsedRolloutEvent } from "../codex/rollout-watcher";
-import { CATALOG_REFRESH_MS, DEFAULT_SETTINGS, PLUGIN_VERSION } from "../constants";
+import { CATALOG_REFRESH_MS, DEFAULT_ENHANCED_STATUS_ENABLED, PLUGIN_VERSION } from "../constants";
 import { HookManager } from "../hooks/hook-manager";
 import { HookServer } from "../hooks/hook-server";
+import { promoteThreadOnNewTurn, reconcileThreadOrder } from "../thread-order";
 import type {
   GlobalSettings,
   HealthSnapshot,
@@ -19,9 +20,9 @@ import type {
 import { findCodexBinary, resolveCodexHome, toErrorMessage } from "../util";
 import {
   initialRuntimeState,
-  makeSnapshot,
   persistRuntimeState,
   reduceRuntimeState,
+  visualState,
   type StatusEvent
 } from "./reducer";
 
@@ -51,6 +52,7 @@ const settingsSchema = z.object({
   enhancedStatusEnabled: z.boolean().optional(),
   codexHome: z.string().optional(),
   initialized: z.boolean().optional(),
+  threadOrder: z.array(z.string()).optional(),
   threadStates: z.record(z.string(), persistedThreadStateSchema).optional(),
   rolloutOffsets: z.record(z.string(), rolloutCursorSchema).optional()
 });
@@ -128,10 +130,12 @@ export class StatusCoordinator {
 
   snapshot(): ReadonlyMap<string, ThreadStatusSnapshot> {
     const snapshots = new Map<string, ThreadStatusSnapshot>();
-    for (const [threadId, thread] of this.threads) {
+    for (const threadId of this.settings.threadOrder ?? []) {
+      const thread = this.threads.get(threadId);
+      if (!thread) continue;
       const runtime =
         this.runtime.get(threadId) ?? initialRuntimeState(this.settings.threadStates?.[threadId]);
-      snapshots.set(threadId, makeSnapshot(thread, runtime));
+      snapshots.set(threadId, { thread, state: visualState(runtime) });
     }
     return snapshots;
   }
@@ -243,7 +247,13 @@ export class StatusCoordinator {
 
     this.threads.clear();
     this.runtime.clear();
-    this.settings = { ...nextSettings, initialized: false, rolloutOffsets: {}, threadStates: {} };
+    this.settings = {
+      ...nextSettings,
+      initialized: false,
+      threadOrder: [],
+      rolloutOffsets: {},
+      threadStates: {}
+    };
     this.health = initialHealth();
     await this.persistNow();
     if (wasStarted) {
@@ -331,18 +341,21 @@ export class StatusCoordinator {
       const nextIds = new Set<string>();
       for (const record of records) {
         nextIds.add(record.id);
-        const previous = this.threads.get(record.id);
         const runtime =
           this.runtime.get(record.id) ?? initialRuntimeState(this.settings.threadStates?.[record.id]);
         this.runtime.set(record.id, runtime);
         this.threads.set(record.id, {
           ...record,
-          updatedAt: Math.max(record.updatedAt, previous?.updatedAt ?? 0, runtime.changedAt)
+          updatedAt: Math.max(record.updatedAt, runtime.changedAt)
         });
       }
       for (const id of this.threads.keys()) {
         if (!nextIds.has(id)) this.threads.delete(id);
       }
+      const previousOrder = this.settings.threadOrder ?? [];
+      const threadOrder = reconcileThreadOrder(previousOrder, this.threads.values());
+      this.settings = { ...this.settings, threadOrder };
+      if (!sameOrder(previousOrder, threadOrder)) this.schedulePersist();
       this.updateHealth({ catalog: "connected" });
       this.emitChange();
     } catch {
@@ -351,7 +364,7 @@ export class StatusCoordinator {
   }
 
   private handleRolloutEvent({ event, baseline }: ParsedRolloutEvent): void {
-    this.applyEvent(event);
+    this.applyEvent(event, !baseline);
     if (baseline && event.type === "turn-completed") {
       this.applyEvent({ type: "acknowledged", threadId: event.threadId, timestamp: event.timestamp });
     }
@@ -362,16 +375,23 @@ export class StatusCoordinator {
     this.applyEvent({ type: "hook", envelope });
   }
 
-  private applyEvent(event: StatusEvent): void {
+  private applyEvent(event: StatusEvent, allowPromotion = true): void {
     const threadId = event.type === "hook" ? event.envelope.threadId : event.threadId;
     const previous =
       this.runtime.get(threadId) ?? initialRuntimeState(this.settings.threadStates?.[threadId]);
     const next = reduceRuntimeState(previous, event);
-    this.runtime.set(threadId, next);
-    const thread = this.threads.get(threadId);
-    if (thread && next.changedAt >= previous.changedAt) {
-      this.threads.set(threadId, { ...thread, updatedAt: Math.max(thread.updatedAt, next.changedAt) });
+    if (allowPromotion && event.type === "turn-started") {
+      this.settings = {
+        ...this.settings,
+        threadOrder: promoteThreadOnNewTurn(
+          this.settings.threadOrder ?? [],
+          threadId,
+          event.timestamp,
+          previous.changedAt
+        )
+      };
     }
+    this.runtime.set(threadId, next);
     this.schedulePersist();
     this.emitChange();
   }
@@ -422,6 +442,10 @@ export class StatusCoordinator {
   }
 }
 
+function sameOrder(left: readonly string[], right: readonly string[]): boolean {
+  return left.length === right.length && left.every((id, index) => id === right[index]);
+}
+
 function normalizeSettings(settings: unknown): GlobalSettings {
   const result = settingsSchema.safeParse(settings);
   const value = result.success ? result.data : {};
@@ -445,9 +469,9 @@ function normalizeSettings(settings: unknown): GlobalSettings {
     ])
   );
   return {
-    assignmentMode: "recent",
-    enhancedStatusEnabled: value.enhancedStatusEnabled ?? DEFAULT_SETTINGS.enhancedStatusEnabled,
+    enhancedStatusEnabled: value.enhancedStatusEnabled ?? DEFAULT_ENHANCED_STATUS_ENABLED,
     initialized: value.initialized ?? false,
+    threadOrder: [...new Set(value.threadOrder ?? [])],
     threadStates,
     rolloutOffsets,
     ...(value.codexHome?.trim() ? { codexHome: value.codexHome.trim() } : {})

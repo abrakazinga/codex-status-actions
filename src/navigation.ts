@@ -8,7 +8,7 @@ const execFileAsync = promisify(execFile);
 
 export function taskDeepLink(threadId: string): string {
   if (!isThreadId(threadId)) throw new Error("Invalid Codex task identifier");
-  return `codex://threads/local/${threadId}`;
+  return `codex://threads/${threadId}`;
 }
 
 export async function isCodexForeground(): Promise<boolean> {

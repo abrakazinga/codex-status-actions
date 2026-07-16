@@ -2,13 +2,7 @@ const PLUGIN_UUID = "com.abrakazinga.codex-status-actions";
 export const ACTION_UUID = `${PLUGIN_UUID}.status`;
 export const PLUGIN_VERSION = "0.1.0";
 
-export const DEFAULT_SETTINGS = {
-  assignmentMode: "recent",
-  enhancedStatusEnabled: true,
-  initialized: false,
-  threadStates: {},
-  rolloutOffsets: {}
-} as const;
+export const DEFAULT_ENHANCED_STATUS_ENABLED = true;
 
 export const CODEX_APP_PATH = "/Applications/ChatGPT.app/Contents/Resources/codex";
 export const CODEX_BUNDLE_ID = "com.openai.codex";

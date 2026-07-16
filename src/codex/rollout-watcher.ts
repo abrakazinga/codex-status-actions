@@ -8,6 +8,7 @@ import { isThreadId } from "../util";
 
 const READ_CHUNK_BYTES = 64 * 1024;
 const MAX_LINE_BYTES = 1024 * 1024;
+const WRITE_STABILITY_MS = 250;
 
 interface RolloutEvent {
   type?: string;
@@ -48,7 +49,10 @@ export class RolloutWatcher {
     this.watcher = chokidar.watch(this.sessionsDirectory, {
       ignoreInitial: false,
       persistent: true,
-      awaitWriteFinish: false,
+      awaitWriteFinish: {
+        stabilityThreshold: WRITE_STABILITY_MS,
+        pollInterval: 25
+      },
       ignored: (filePath, metadata) => Boolean(metadata?.isFile() && !filePath.endsWith(".jsonl"))
     });
     this.watcher.on("add", (filePath) => this.queue(filePath));

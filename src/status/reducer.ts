@@ -1,10 +1,4 @@
-import type {
-  HookEnvelope,
-  PersistedThreadState,
-  ThreadRuntimeState,
-  ThreadStatusSnapshot,
-  ThreadVisualState
-} from "../types";
+import type { HookEnvelope, PersistedThreadState, ThreadRuntimeState, ThreadVisualState } from "../types";
 
 export type StatusEvent =
   | { type: "turn-started"; threadId: string; turnId?: string; timestamp: number }
@@ -39,8 +33,7 @@ export function reduceRuntimeState(previous: ThreadRuntimeState, event: StatusEv
         needsUser: false,
         error: false,
         changedAt: event.timestamp,
-        ...(previous.lastCompletionId ? { lastAcknowledgedCompletionId: previous.lastCompletionId } : {}),
-        ...(event.turnId ? { turnId: event.turnId } : {})
+        ...(previous.lastCompletionId ? { lastAcknowledgedCompletionId: previous.lastCompletionId } : {})
       };
     case "activity":
       return { ...previous, working: true, needsUser: false, changedAt: event.timestamp };
@@ -52,8 +45,7 @@ export function reduceRuntimeState(previous: ThreadRuntimeState, event: StatusEv
         needsUser: false,
         error: false,
         changedAt: event.timestamp,
-        lastCompletionId: completionId,
-        ...(event.turnId ? { turnId: event.turnId } : {})
+        lastCompletionId: completionId
       };
     }
     case "turn-error":
@@ -62,8 +54,7 @@ export function reduceRuntimeState(previous: ThreadRuntimeState, event: StatusEv
         working: false,
         needsUser: false,
         error: true,
-        changedAt: event.timestamp,
-        ...(event.turnId ? { turnId: event.turnId } : {})
+        changedAt: event.timestamp
       };
     case "acknowledged":
       return {
@@ -80,8 +71,7 @@ export function reduceRuntimeState(previous: ThreadRuntimeState, event: StatusEv
         ...previous,
         working: true,
         needsUser: true,
-        changedAt: envelope.timestamp,
-        ...(envelope.turnId ? { turnId: envelope.turnId } : {})
+        changedAt: envelope.timestamp
       };
     }
   }
@@ -105,21 +95,5 @@ export function persistRuntimeState(runtime: ThreadRuntimeState): PersistedThrea
       : {}),
     error: runtime.error,
     changedAt: runtime.changedAt
-  };
-}
-
-export function makeSnapshot(
-  thread: ThreadStatusSnapshot["thread"],
-  runtime: ThreadRuntimeState
-): ThreadStatusSnapshot {
-  const state = visualState(runtime);
-  return {
-    thread: { ...thread, updatedAt: Math.max(thread.updatedAt, runtime.changedAt) },
-    state,
-    changedAt: runtime.changedAt,
-    ...(runtime.turnId ? { turnId: runtime.turnId } : {}),
-    ...(state === "unread" && runtime.lastCompletionId
-      ? { unreadCompletionId: runtime.lastCompletionId }
-      : {})
   };
 }

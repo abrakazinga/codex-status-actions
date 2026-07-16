@@ -4,7 +4,7 @@
 
 An unofficial, open-source Stream Deck integration for monitoring local OpenAI Codex tasks on macOS.
 
-The `Codex Status` action can be placed on one or many keys. Visible instances automatically represent your most recently updated Codex tasks and move as recency changes.
+The `Codex Status` action can be placed on one or many keys. Tiles start in recent-task order, then remain stable until a task begins a new turn and moves to the first position.
 
 | Color      | Meaning                                                    |
 | ---------- | ---------------------------------------------------------- |
@@ -14,7 +14,7 @@ The `Codex Status` action can be placed on one or many keys. Visible instances a
 | Orange     | Codex needs an approval or answer                          |
 | Red        | The task or integration reported an error                  |
 
-Each state also has its own geometric icon, so color is not the only signal.
+Each tile shows its rank in the top-right and a one-line state/task debug label along the bottom.
 
 ## Requirements
 
@@ -34,20 +34,22 @@ The plugin works without trusted hooks, but approval and question waits may rema
 
 ## How assignment works
 
-`Most Recent` is a live rank, not a sticky binding:
+`Most Recent` uses a stable, turn-driven queue:
 
 - Visible status keys are ordered top-left to bottom-right on each device.
-- Key 1 receives the newest local top-level task, key 2 the next newest, and so on.
+- Initial ranks use the current task recency.
+- Starting a new turn moves only that task to rank 1; status updates and completions do not reorder tiles.
+- The queue is persisted across Stream Deck and plugin restarts.
 - Archived, ephemeral, and spawned subagent tasks are excluded.
 - Each device ranks tasks independently.
 
 ## Key presses
 
-- **Single tap:** switch to the represented task. If Codex is already foreground, the green unread state is acknowledged.
-- **First tap while Codex is in the background:** preselect the task without stealing focus.
+- **Single tap:** switch to the represented task and acknowledge its green unread state after successful navigation.
+- **First tap while Codex is in the background:** preselect and acknowledge the task without stealing focus.
 - **Second tap within 500 ms:** activate Codex and select the task again.
 
-Navigation uses the version-checked `codex://threads/local/<thread-id>` URL and macOS `open`. It does not use screen coordinates, Accessibility, AppleScript, or simulated keyboard input.
+Navigation uses the version-checked `codex://threads/<thread-id>` URL and macOS `open`. It does not use screen coordinates, Accessibility, AppleScript, or simulated keyboard input.
 
 ## Privacy and security
 
@@ -83,7 +85,7 @@ Package a distributable artifact with `pnpm run pack`.
 ## Current limitations
 
 - macOS and one local Codex installation only
-- `Most Recent` is the only assignment mode in v0.1
+- The stable turn-driven queue is the only assignment mode in v0.1
 - Green is a plugin-local unread marker, not Codex Desktop's private read state
 - Approval orange clears on the next observable task activity because Codex does not expose a dedicated approval-resolved lifecycle hook
 - The local task URL is an interoperability surface and may require adaptation after a Codex update

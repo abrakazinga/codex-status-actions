@@ -2,23 +2,18 @@ import type { JsonObject } from "@elgato/utils";
 
 export type ThreadVisualState = "idle" | "unread" | "working" | "needs-user" | "error";
 
-type AssignmentMode = "recent";
-
 export interface ThreadRecord {
   id: string;
   title: string;
-  cwd?: string;
   updatedAt: number;
   parentThreadId?: string;
-  archived: boolean;
-  ephemeral?: boolean;
+  ephemeral: boolean;
 }
 
 export interface ThreadRuntimeState {
   working: boolean;
   needsUser: boolean;
   error: boolean;
-  turnId?: string;
   changedAt: number;
   lastCompletionId?: string;
   lastAcknowledgedCompletionId?: string;
@@ -27,9 +22,6 @@ export interface ThreadRuntimeState {
 export interface ThreadStatusSnapshot {
   thread: ThreadRecord;
   state: ThreadVisualState;
-  turnId?: string;
-  changedAt: number;
-  unreadCompletionId?: string;
 }
 
 export interface HookEnvelope {
@@ -65,10 +57,10 @@ export interface RolloutFileCursor extends JsonObject {
 }
 
 export interface GlobalSettings extends JsonObject {
-  assignmentMode: AssignmentMode;
   enhancedStatusEnabled: boolean;
   codexHome?: string;
   initialized?: boolean;
+  threadOrder?: string[];
   threadStates?: Record<string, PersistedThreadState>;
   rolloutOffsets?: Record<string, RolloutFileCursor>;
 }

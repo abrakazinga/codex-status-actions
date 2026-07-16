@@ -6,7 +6,6 @@ describe("status coordinator settings", () => {
   it("validates stored settings and exposes only property-inspector fields", () => {
     const coordinator = new StatusCoordinator(
       {
-        assignmentMode: "recent",
         enhancedStatusEnabled: false,
         codexHome: " /tmp/codex-home ",
         initialized: true,

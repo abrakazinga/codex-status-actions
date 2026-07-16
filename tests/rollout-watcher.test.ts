@@ -52,6 +52,37 @@ describe("rollout watcher", () => {
     await watcher.stop();
   });
 
+  it("captures a completion appended immediately after activity", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "codex-rollout-terminal-"));
+    const sessions = path.join(root, "sessions");
+    await mkdir(sessions, { recursive: true });
+    const file = path.join(sessions, `rollout-${threadId}.jsonl`);
+    await writeFile(file, `${rolloutLine("task_started", "rapid")}\n`);
+
+    const events: ParsedRolloutEvent[] = [];
+    const watcher = new RolloutWatcher(
+      sessions,
+      {},
+      false,
+      (event) => events.push(event),
+      () => undefined
+    );
+    watchers.add(watcher);
+    await watcher.start();
+
+    await appendFile(
+      file,
+      `${JSON.stringify({ type: "response_item", timestamp: new Date().toISOString(), payload: { type: "message" } })}\n`
+    );
+    await new Promise((resolve) => setTimeout(resolve, 75));
+    await appendFile(file, `${rolloutLine("task_complete", "rapid")}\n`);
+
+    await waitFor(
+      () => events.some(({ event }) => event.type === "turn-completed"),
+      "Timed out waiting for terminal rollout event"
+    );
+  });
+
   it("replays an incomplete line after restart without losing its prefix", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "codex-rollout-partial-"));
     const sessions = path.join(root, "sessions");

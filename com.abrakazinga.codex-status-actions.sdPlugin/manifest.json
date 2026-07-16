@@ -7,7 +7,7 @@
       "Name": "Codex Status",
       "UUID": "com.abrakazinga.codex-status-actions.status",
       "Icon": "imgs/actions/status/icon",
-      "Tooltip": "Shows one of your most recently updated local Codex tasks.",
+      "Tooltip": "Shows a local Codex task in a stable, turn-driven queue.",
       "PropertyInspectorPath": "ui/property-inspector.html",
       "Controllers": ["Keypad"],
       "States": [
@@ -35,8 +35,7 @@
     }
   ],
   "Nodejs": {
-    "Version": "20",
-    "Debug": "enabled"
+    "Version": "20"
   },
   "UUID": "com.abrakazinga.codex-status-actions"
 }
