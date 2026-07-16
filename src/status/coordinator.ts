@@ -172,7 +172,14 @@ export class StatusCoordinator {
         platform: process.platform,
         architecture: process.arch,
         isCustomCodexHomeConfigured: Boolean(this.settings.codexHome || process.env.CODEX_HOME),
-        health: this.health,
+        health: {
+          codexBinary: this.health.codexBinary,
+          catalog: this.health.catalog,
+          rolloutWatcher: this.health.rolloutWatcher,
+          hooks: this.health.hooks,
+          navigation: this.health.navigation,
+          restartRequired: this.health.restartRequired
+        },
         taskCount: this.threads.size,
         hookCount: this.hookCount,
         enhancedStatusEnabled: this.settings.enhancedStatusEnabled
