@@ -28,6 +28,8 @@ describe("status coordinator settings", () => {
       () => Promise.resolve(),
       () => undefined
     );
-    expect(coordinator.propertySnapshot().settings).toEqual({ enhancedStatusEnabled: true });
+    expect(coordinator.propertySnapshot().settings).toEqual({
+      enhancedStatusEnabled: true
+    });
   });
 });

@@ -5,7 +5,6 @@ export default tseslint.config(
   {
     ignores: [
       "com.abrakazinga.codex-status-actions.sdPlugin/bin/**",
-      "com.abrakazinga.codex-status-actions.sdPlugin/ui/**/*.js",
       "release/**",
       "eslint.config.js",
       "rollup.config.mjs"
@@ -23,6 +22,21 @@ export default tseslint.config(
     rules: {
       "@typescript-eslint/no-confusing-void-expression": "off",
       "@typescript-eslint/no-misused-promises": ["error", { checksVoidReturn: false }]
+    }
+  },
+  {
+    files: ["com.abrakazinga.codex-status-actions.sdPlugin/ui/**/*.js"],
+    ...tseslint.configs.disableTypeChecked,
+    languageOptions: {
+      ...tseslint.configs.disableTypeChecked.languageOptions,
+      sourceType: "script",
+      globals: {
+        WebSocket: "readonly",
+        clearTimeout: "readonly",
+        document: "readonly",
+        navigator: "readonly",
+        setTimeout: "readonly"
+      }
     }
   }
 );

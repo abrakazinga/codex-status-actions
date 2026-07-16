@@ -8,63 +8,81 @@
   </head>
   <body>
     <main class="panel">
-      <header class="masthead">
-        <div class="mark" aria-hidden="true">
-          <i class="blue"></i><i class="green"></i><i class="orange"></i><i class="red"></i>
-        </div>
-        <div>
-          <p class="eyebrow">UNOFFICIAL COMMUNITY INTEGRATION</p>
-          <h1>CODEX STATUS</h1>
-        </div>
-      </header>
+      <aside class="disclaimer">
+        This unofficial integration reads local Codex task metadata and status files. Task content is not sent
+        off-device or logged by the plugin. Status checks do not start or modify Codex tasks.
+      </aside>
 
-      <section class="readout">
-        <span>ASSIGNMENT</span>
-        <strong>RECENT TURNS</strong>
-        <small>Only a new turn moves its task to the first key.</small>
+      <section class="section-block">
+        <h2>General</h2>
+        <label class="field-row" for="assignment-mode">
+          <span>Assignment</span>
+          <select id="assignment-mode" title="Only a new turn moves its task to the first key." disabled>
+            <option>Recent turns</option>
+          </select>
+        </label>
       </section>
 
-      <section class="control-block">
-        <label class="toggle-row" for="enhanced-status">
-          <span>
-            <strong>ENHANCED STATUS</strong>
-            <small>Approval and question detection through local Codex hooks.</small>
-          </span>
-          <input id="enhanced-status" type="checkbox" checked />
-          <span class="toggle" aria-hidden="true"></span>
+      <section class="section-block">
+        <h2>Status detection</h2>
+        <label class="field-row" for="enhanced-status">
+          <span>Enhanced status</span>
+          <select id="enhanced-status" title="Approval and question detection through local Codex hooks.">
+            <option value="enabled">Enabled</option>
+            <option value="disabled">Disabled</option>
+          </select>
         </label>
+        <p class="section-description">
+          Optional, but recommended. Uses local hooks to show when Codex needs approval or an answer.
+        </p>
         <div id="restart-notice" class="notice hidden">
           <strong>RESTART CODEX</strong>
           Hook configuration changed. Restart Codex once to activate it.
         </div>
-        <button id="trust-hooks" class="button primary" type="button">TRUST 3 LOCAL STATUS HOOKS</button>
-        <button id="reinstall-hooks" class="button secondary" type="button">REINSTALL HOOKS</button>
-      </section>
-
-      <section class="health" aria-label="Connection health">
-        <h2>SYSTEM CHECK</h2>
-        <div class="health-row"><span>CODEX BINARY</span><output id="health-binary">CHECKING</output></div>
-        <div class="health-row"><span>TASK CATALOG</span><output id="health-catalog">CONNECTING</output></div>
-        <div class="health-row">
-          <span>ROLLOUT WATCHER</span><output id="health-rollout">STARTING</output>
+        <div class="hook-actions">
+          <button id="trust-hooks" class="button primary" type="button">Trust 3 local status hooks</button>
+          <button id="reinstall-hooks" class="button secondary" type="button">Reinstall hooks</button>
         </div>
-        <div class="health-row"><span>STATUS HOOKS</span><output id="health-hooks">MISSING</output></div>
-        <div class="health-row"><span>NAVIGATION</span><output id="health-navigation">UNCHECKED</output></div>
       </section>
 
-      <section class="path-block">
-        <label for="codex-home">CODEX_HOME</label>
-        <div class="path-input">
-          <input id="codex-home" type="text" spellcheck="false" placeholder="~/.codex" />
-          <button id="apply-home" type="button" aria-label="Apply Codex home">SET</button>
+      <details class="collapsible">
+        <summary>Advanced</summary>
+        <div class="collapsible-content">
+          <div class="field-row">
+            <label for="codex-home">Codex home</label>
+            <div class="path-input">
+              <input id="codex-home" type="text" spellcheck="false" placeholder="~/.codex" />
+              <button id="apply-home" type="button" aria-label="Apply Codex home">Set</button>
+              <button id="reset-home" type="button">Default</button>
+            </div>
+          </div>
         </div>
-        <button id="reset-home" class="text-button" type="button">USE DEFAULT</button>
-      </section>
+      </details>
 
-      <footer>
-        <button id="copy-diagnostics" class="text-button" type="button">COPY SAFE DIAGNOSTICS</button>
-        <span id="version">v0.1.0</span>
-      </footer>
+      <details class="collapsible debug">
+        <summary>Debug</summary>
+        <div class="collapsible-content">
+          <div class="health" aria-label="System status">
+            <div class="health-row">
+              <span>Codex binary</span><output id="health-binary">CHECKING</output>
+            </div>
+            <div class="health-row">
+              <span>Task catalog</span><output id="health-catalog">CONNECTING</output>
+            </div>
+            <div class="health-row">
+              <span>Rollout watcher</span><output id="health-rollout">STARTING</output>
+            </div>
+            <div class="health-row"><span>Status hooks</span><output id="health-hooks">MISSING</output></div>
+            <div class="health-row">
+              <span>Navigation</span><output id="health-navigation">UNCHECKED</output>
+            </div>
+          </div>
+          <div class="debug-footer">
+            <button id="copy-diagnostics" class="text-button" type="button">Copy safe diagnostics</button>
+            <span id="version">v0.1.0</span>
+          </div>
+        </div>
+      </details>
       <div id="toast" role="status" aria-live="polite"></div>
     </main>
     <script src="property-inspector.js"></script>

@@ -4,6 +4,41 @@ import vm from "node:vm";
 import { describe, expect, it } from "vitest";
 
 describe("property inspector", () => {
+  it("uses an accurate local-data disclaimer without a branded header", async () => {
+    const html = await readFile(
+      new URL("../com.abrakazinga.codex-status-actions.sdPlugin/ui/property-inspector.html", import.meta.url),
+      "utf8"
+    );
+    const text = html.replace(/\s+/g, " ");
+
+    expect(text).toContain("This unofficial integration reads local Codex task metadata and status files.");
+    expect(text).toContain("Task content is not sent off-device or logged by the plugin.");
+    expect(html).not.toContain('id="appearance-mode"');
+    expect(html).toContain('<select id="enhanced-status"');
+    expect(html).toMatch(/id="assignment-mode"[\s\S]*?disabled/);
+    expect(html).toContain("<h2>General</h2>");
+    expect(html).toContain("<h2>Status detection</h2>");
+    expect(text).toContain(
+      "Optional, but recommended. Uses local hooks to show when Codex needs approval or an answer."
+    );
+    expect(html).not.toContain("<h2>SETTINGS</h2>");
+    expect(html.indexOf("Advanced")).toBeLessThan(html.indexOf("Debug"));
+    expect(html.indexOf("Debug")).toBeLessThan(html.indexOf('id="health-binary"'));
+    expect(html).not.toContain("CODEX STATUS");
+    expect(html).not.toContain('class="masthead"');
+  });
+
+  it("disables Stream Deck's standard title field", async () => {
+    const manifest = JSON.parse(
+      await readFile(
+        new URL("../com.abrakazinga.codex-status-actions.sdPlugin/manifest.json", import.meta.url),
+        "utf8"
+      )
+    ) as { Actions: Array<{ UserTitleEnabled?: boolean }> };
+
+    expect(manifest.Actions[0]?.UserTitleEnabled).toBe(false);
+  });
+
   it("sends commands with the registered action context", async () => {
     const source = await readFile(
       new URL("../com.abrakazinga.codex-status-actions.sdPlugin/ui/property-inspector.js", import.meta.url),
@@ -17,7 +52,10 @@ describe("property inspector", () => {
           sockets.push(this);
         }
       },
-      document: { querySelector: () => ({ addEventListener: () => undefined }) },
+      document: {
+        documentElement: { dataset: {} },
+        querySelector: () => ({ addEventListener: () => undefined })
+      },
       navigator: {},
       setTimeout,
       clearTimeout

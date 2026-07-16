@@ -42,7 +42,7 @@ The helper reduces hook input before forwarding it. `HookServer` accepts only a 
 
 Every visible device is ranked independently. Visible key coordinates are sorted row-major and paired with a persisted top-level task queue. The first catalog load seeds that queue by recency with a deterministic thread-ID tie breaker. Only a new turn promotes an existing task to the front; ordinary activity, status transitions, completions, and catalog metadata refreshes preserve the order. New catalog entries append to the queue, while archived or removed tasks drop out.
 
-Each key receives a minimal 144×144 SVG data URI containing only its state color, rank, and one-line debug label. The plugin caches the last image per context to avoid redundant Stream Deck updates.
+Each key receives a minimal 144×144 SVG data URI containing one centered circle from the fixed status palette on a transparent surface. There are no labels or rank numbers. The plugin caches the last image per context to avoid redundant Stream Deck updates.
 
 ### Navigation
 

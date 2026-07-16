@@ -7,7 +7,6 @@ function snapshot(id: string, updatedAt: number, parentThreadId?: string): Threa
   return {
     thread: {
       id,
-      title: id,
       updatedAt,
       ephemeral: false,
       ...(parentThreadId ? { parentThreadId } : {})
@@ -26,8 +25,8 @@ describe("ordered assignment", () => {
       ],
       [snapshot("new", 20), snapshot("old", 10)]
     );
-    expect(assignments.get("top")).toMatchObject({ rank: 1, snapshot: { thread: { id: "new" } } });
-    expect(assignments.get("bottom")).toMatchObject({ rank: 2, snapshot: { thread: { id: "old" } } });
-    expect(assignments.get("other")).toMatchObject({ rank: 1, snapshot: { thread: { id: "new" } } });
+    expect(assignments.get("top")).toMatchObject({ snapshot: { thread: { id: "new" } } });
+    expect(assignments.get("bottom")).toMatchObject({ snapshot: { thread: { id: "old" } } });
+    expect(assignments.get("other")).toMatchObject({ snapshot: { thread: { id: "new" } } });
   });
 });

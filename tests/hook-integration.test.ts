@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { spawn } from "node:child_process";
 import { request } from "node:http";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AppServerClient } from "../src/codex/app-server-client";
 import { HookManager } from "../src/hooks/hook-manager";
@@ -22,6 +22,30 @@ afterEach(async () => {
 });
 
 describe("Codex hook integration", () => {
+  it("does not report incomplete or duplicate hook sets as trusted", async () => {
+    const client = new AppServerClient("/bin/false");
+    const listHooks = vi.spyOn(client, "listHooks");
+    const hook = {
+      key: "status-hook",
+      command: "/bin/true",
+      enabled: true,
+      currentHash: "sha256:test",
+      trustStatus: "trusted" as const
+    };
+    const manager = new HookManager("/tmp", client);
+
+    listHooks.mockResolvedValueOnce([hook, { ...hook, key: "status-hook-2" }]);
+    expect(await manager.status(process.cwd())).toEqual({ status: "missing", count: 2 });
+
+    listHooks.mockResolvedValueOnce([
+      hook,
+      { ...hook, key: "status-hook-2" },
+      { ...hook, key: "status-hook-3" },
+      { ...hook, key: "status-hook-4" }
+    ]);
+    expect(await manager.status(process.cwd())).toEqual({ status: "modified", count: 4 });
+  });
+
   it("preserves existing hooks and forwards only the reduced envelope", async () => {
     const codexHome = await mkdtemp(path.join(tmpdir(), "codex-hooks-"));
     await writeFile(

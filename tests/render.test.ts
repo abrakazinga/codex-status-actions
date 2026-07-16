@@ -10,25 +10,22 @@ describe("tile renderer", () => {
     ["needs-user", "#FFCBB6"],
     ["error", "#FF6B73"]
   ] as const)("renders %s with its fixed palette", (state, color) => {
-    expect(decodeSvg(renderStatusTile(state, "Task", 1))).toContain(color);
+    expect(decodeSvg(renderStatusTile(state))).toContain(color);
   });
 
-  it("escapes task titles before placing them in SVG", () => {
-    const svg = decodeSvg(renderStatusTile("unread", '<open & "close">', 2));
-    expect(svg).toContain("&lt;OPEN");
-    expect(svg).toContain("&amp;");
-    expect(svg).not.toContain(">UNREAD · <OPEN");
+  it("leaves the tile background transparent", () => {
+    expect(decodeSvg(renderStatusTile("idle"))).not.toContain("<rect");
   });
 
-  it("renders one truncated debug line and the rank", () => {
-    const svg = decodeSvg(renderStatusTile("idle", "abcdefghijklmnopqrstuvwxyz0123456789", 1));
-    expect(svg).toContain(">IDLE · ABCDEFGHIJKLMN…</text>");
-    expect(svg).toContain(">1</text>");
-    expect(svg.match(/<text/g)).toHaveLength(2);
+  it("renders only one centered filled circle without text", () => {
+    const svg = decodeSvg(renderStatusTile("working"));
+    expect(svg).toContain('<circle cx="72" cy="72" r="34" fill="#8DCEF5"/>');
+    expect(svg).not.toContain("<text");
+    expect(svg.match(/<circle/g)).toHaveLength(1);
   });
 
   it("returns an SVG data URI accepted by Stream Deck", () => {
-    expect(renderStatusTile("working", "Task", 1)).toMatch(/^data:image\/svg\+xml;base64,/);
+    expect(renderStatusTile("working")).toMatch(/^data:image\/svg\+xml;base64,/);
   });
 });
 

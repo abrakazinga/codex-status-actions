@@ -8,7 +8,6 @@ export interface TilePosition {
 }
 
 export interface TileAssignment {
-  rank: number;
   snapshot?: ThreadStatusSnapshot;
 }
 
@@ -33,7 +32,6 @@ export function assignInOrder(
     deviceTiles.forEach((tile, index) => {
       const snapshot = ordered[index];
       result.set(tile.contextId, {
-        rank: index + 1,
         ...(snapshot ? { snapshot } : {})
       });
     });

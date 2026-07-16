@@ -3,6 +3,7 @@ let actionInfo;
 let toastTimer;
 
 function connectElgatoStreamDeckSocket(port, uuid, registerEvent, info, rawActionInfo) {
+  void info;
   actionInfo = JSON.parse(rawActionInfo);
   socket = new WebSocket(`ws://127.0.0.1:${port}`);
   socket.addEventListener("open", () => {
@@ -15,6 +16,7 @@ function connectElgatoStreamDeckSocket(port, uuid, registerEvent, info, rawActio
     receive(message.payload);
   });
 }
+void connectElgatoStreamDeckSocket;
 
 function send(payload) {
   if (!socket || socket.readyState !== WebSocket.OPEN) return;
@@ -35,7 +37,9 @@ function receive(payload) {
 }
 
 function renderSnapshot(snapshot) {
-  document.querySelector("#enhanced-status").checked = snapshot.settings.enhancedStatusEnabled;
+  document.querySelector("#enhanced-status").value = snapshot.settings.enhancedStatusEnabled
+    ? "enabled"
+    : "disabled";
   document.querySelector("#codex-home").value = snapshot.settings.codexHome || "";
   document.querySelector("#version").textContent = `v${snapshot.version}`;
   document.querySelector("#restart-notice").classList.toggle("hidden", !snapshot.health.restartRequired);
@@ -47,8 +51,8 @@ function renderSnapshot(snapshot) {
   const trusted = snapshot.health.hooks === "trusted";
   document.querySelector("#trust-hooks").disabled = trusted || !snapshot.settings.enhancedStatusEnabled;
   document.querySelector("#trust-hooks").textContent = trusted
-    ? "3 STATUS HOOKS TRUSTED"
-    : "TRUST 3 LOCAL STATUS HOOKS";
+    ? "3 status hooks trusted"
+    : "Trust 3 local status hooks";
   document.querySelector("#reinstall-hooks").disabled = !snapshot.settings.enhancedStatusEnabled;
 }
 
@@ -74,14 +78,14 @@ async function copyText(text) {
 function showToast(message, error = false) {
   const toast = document.querySelector("#toast");
   toast.textContent = message;
-  toast.style.background = error ? "var(--red)" : "var(--paper)";
+  toast.style.background = error ? "var(--red)" : "var(--toast-background)";
   toast.classList.add("visible");
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => toast.classList.remove("visible"), 2200);
 }
 
 document.querySelector("#enhanced-status").addEventListener("change", (event) => {
-  send({ type: "set-enhanced-status", enabled: event.target.checked });
+  send({ type: "set-enhanced-status", enabled: event.target.value === "enabled" });
 });
 document.querySelector("#trust-hooks").addEventListener("click", () => send({ type: "trust-hooks" }));
 document.querySelector("#reinstall-hooks").addEventListener("click", () => send({ type: "reinstall-hooks" }));

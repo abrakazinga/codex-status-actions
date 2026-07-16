@@ -99,7 +99,8 @@ export class HookManager {
   async status(cwd: string): Promise<{ status: HookTrustStatus; count: number }> {
     try {
       const hooks = await this.listOwned(cwd);
-      if (hooks.length === 0) return { status: "missing", count: 0 };
+      if (hooks.length < OWNED_EVENTS.length) return { status: "missing", count: hooks.length };
+      if (hooks.length > OWNED_EVENTS.length) return { status: "modified", count: hooks.length };
       if (hooks.some((hook) => !hook.enabled)) return { status: "disabled", count: hooks.length };
       if (hooks.some((hook) => hook.trustStatus === "modified"))
         return { status: "modified", count: hooks.length };
