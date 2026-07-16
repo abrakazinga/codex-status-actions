@@ -16,8 +16,9 @@ const threadId = "019f6b6d-644d-7701-8858-9da6837aaaaa";
 const servers = new Set<HookServer>();
 
 afterEach(async () => {
-  await Promise.all([...servers].map((server) => server.stop()));
+  const tracked = [...servers];
   servers.clear();
+  await Promise.all(tracked.map((server) => server.stop()));
 });
 
 describe("Codex hook integration", () => {
@@ -103,7 +104,7 @@ describe("Codex hook integration", () => {
   });
 
   it("rejects hook envelopes with fields outside the allow-list", async () => {
-    const codexHome = await mkdtemp("/tmp/csa-hooks-");
+    const codexHome = await mkdtemp(path.join(tmpdir(), "csa-hooks-"));
     let received = false;
     const server = trackServer(
       new HookServer(codexHome, () => {

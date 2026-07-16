@@ -13,8 +13,9 @@ const threadId = "019f6b6d-644d-7701-8858-9da6837aaaaa";
 const watchers = new Set<RolloutWatcher>();
 
 afterEach(async () => {
-  await Promise.all([...watchers].map((watcher) => watcher.stop()));
+  const tracked = [...watchers];
   watchers.clear();
+  await Promise.all(tracked.map((watcher) => watcher.stop()));
 });
 
 describe("rollout watcher", () => {
