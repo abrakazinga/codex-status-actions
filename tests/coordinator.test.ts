@@ -22,7 +22,7 @@ describe("status coordinator settings", () => {
     });
 
     const diagnostics = coordinator.diagnostics();
-    expect(JSON.parse(diagnostics)).toMatchObject({ customCodexHomeConfigured: true });
+    expect(JSON.parse(diagnostics)).toMatchObject({ isCustomCodexHomeConfigured: true });
     expect(diagnostics).not.toContain("/tmp/codex-home");
   });
 

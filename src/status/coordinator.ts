@@ -171,7 +171,7 @@ export class StatusCoordinator {
         pluginVersion: PLUGIN_VERSION,
         platform: process.platform,
         architecture: process.arch,
-        customCodexHomeConfigured: Boolean(this.settings.codexHome || process.env.CODEX_HOME),
+        isCustomCodexHomeConfigured: Boolean(this.settings.codexHome || process.env.CODEX_HOME),
         health: this.health,
         taskCount: this.threads.size,
         hookCount: this.hookCount,
