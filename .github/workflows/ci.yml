@@ -11,7 +11,9 @@ permissions:
 
 jobs:
   verify:
-    runs-on: ubuntu-latest
+    # The plugin and its privacy-preserving hook helper are macOS-only in v0.1.
+    # Running CI on macOS exercises the same plutil/curl integration users install.
+    runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -34,7 +36,7 @@ jobs:
   release:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: verify
-    runs-on: ubuntu-latest
+    runs-on: macos-14
     permissions:
       contents: write
     steps:

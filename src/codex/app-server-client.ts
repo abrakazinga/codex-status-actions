@@ -159,6 +159,9 @@ export class AppServerClient extends EventEmitter {
 
     const lines = createInterface({ input: child.stdout, crlfDelay: Infinity });
     lines.on("line", (line) => this.handleLine(line));
+    child.stdin.on("error", (error) => {
+      if (!this.stopped) this.handleExit(error);
+    });
     child.stderr.setEncoding("utf8");
     child.stderr.on("data", (chunk: string) => {
       const message = chunk.trim();
@@ -211,7 +214,9 @@ export class AppServerClient extends EventEmitter {
   private notify(method: string, params: unknown): void {
     const child = this.child;
     if (!child || child.killed) return;
-    child.stdin.write(`${JSON.stringify({ method, params })}\n`);
+    child.stdin.write(`${JSON.stringify({ method, params })}\n`, (error) => {
+      if (error && !this.stopped) this.emit("diagnostic", toErrorMessage(error).slice(0, 500));
+    });
   }
 
   private handleLine(line: string): void {
