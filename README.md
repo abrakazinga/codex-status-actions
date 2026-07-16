@@ -45,8 +45,8 @@ The plugin works without trusted hooks, but approval and question waits may rema
 
 ## Key presses
 
-- **Single tap:** switch to the represented task. If Codex is already foreground, the green unread state is acknowledged.
-- **First tap while Codex is in the background:** preselect the task without stealing focus.
+- **Single tap:** switch to the represented task and acknowledge its green unread state after successful navigation.
+- **First tap while Codex is in the background:** preselect and acknowledge the task without stealing focus.
 - **Second tap within 500 ms:** activate Codex and select the task again.
 
 Navigation uses the version-checked `codex://threads/<thread-id>` URL and macOS `open`. It does not use screen coordinates, Accessibility, AppleScript, or simulated keyboard input.

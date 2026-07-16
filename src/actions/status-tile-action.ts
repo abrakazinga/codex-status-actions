@@ -117,12 +117,11 @@ export class StatusTileAction extends SingletonAction<ActionSettings> {
       if (isSecondTap) {
         this.previousTaps.delete(contextId);
         await activateCodexAndOpenTask(threadId);
-        this.coordinator?.acknowledge(threadId);
       } else {
         this.previousTaps.set(contextId, { at: now, threadId, wasForeground });
         await openTaskInBackground(threadId);
-        if (wasForeground) this.coordinator?.acknowledge(threadId);
       }
+      this.coordinator?.acknowledge(threadId);
       this.coordinator?.markNavigation(true);
     } catch (error) {
       this.coordinator?.markNavigation(false, toErrorMessage(error));
