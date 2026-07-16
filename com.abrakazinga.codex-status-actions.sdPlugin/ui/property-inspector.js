@@ -1,10 +1,8 @@
 let socket;
-let pluginUUID;
 let actionInfo;
 let toastTimer;
 
 function connectElgatoStreamDeckSocket(port, uuid, registerEvent, info, rawActionInfo) {
-  pluginUUID = uuid;
   actionInfo = JSON.parse(rawActionInfo);
   socket = new WebSocket(`ws://127.0.0.1:${port}`);
   socket.addEventListener("open", () => {

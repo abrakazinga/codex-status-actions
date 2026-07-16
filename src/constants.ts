@@ -1,4 +1,4 @@
-export const PLUGIN_UUID = "com.abrakazinga.codex-status-actions";
+const PLUGIN_UUID = "com.abrakazinga.codex-status-actions";
 export const ACTION_UUID = `${PLUGIN_UUID}.status`;
 export const PLUGIN_VERSION = "0.1.0";
 

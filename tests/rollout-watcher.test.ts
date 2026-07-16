@@ -1,4 +1,4 @@
-import { appendFile, mkdir, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { mkdtemp } from "node:fs/promises";
@@ -6,6 +6,7 @@ import { mkdtemp } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
 import { RolloutWatcher, type ParsedRolloutEvent } from "../src/codex/rollout-watcher";
+import { waitFor } from "./helpers";
 
 const threadId = "019f6b6d-644d-7701-8858-9da6837aaaaa";
 
@@ -35,15 +36,114 @@ describe("rollout watcher", () => {
       file,
       `${JSON.stringify({ type: "event_msg", timestamp: "2026-07-16T10:01:00Z", payload: { type: "task_started", turn_id: "new" } })}\n`
     );
-    await waitFor(() => events.some(({ event, baseline }) => event.type === "turn-started" && !baseline));
+    await waitFor(
+      () => events.some(({ event, baseline }) => event.type === "turn-started" && !baseline),
+      "Timed out waiting for rollout event"
+    );
+    await watcher.stop();
+  });
+
+  it("replays an incomplete line after restart without losing its prefix", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "codex-rollout-partial-"));
+    const sessions = path.join(root, "sessions");
+    await mkdir(sessions, { recursive: true });
+    const file = path.join(sessions, `rollout-${threadId}.jsonl`);
+    const line = JSON.stringify({
+      type: "event_msg",
+      timestamp: "2026-07-16T10:02:00Z",
+      payload: { type: "task_started", turn_id: "partial" }
+    });
+    const splitAt = Math.floor(line.length / 2);
+    await writeFile(file, line.slice(0, splitAt));
+
+    let offsets: Record<string, number> = {};
+    const first = new RolloutWatcher(
+      sessions,
+      offsets,
+      false,
+      () => undefined,
+      (next) => {
+        offsets = next;
+      }
+    );
+    await first.start();
+    await first.stop();
+    expect(offsets[file] ?? 0).toBe(0);
+
+    await appendFile(file, `${line.slice(splitAt)}\n`);
+    const events: ParsedRolloutEvent[] = [];
+    const second = new RolloutWatcher(
+      sessions,
+      offsets,
+      false,
+      (event) => events.push(event),
+      () => undefined
+    );
+    await second.start();
+    expect(events).toHaveLength(1);
+    expect(events[0]?.event.type).toBe("turn-started");
+    await second.stop();
+  });
+
+  it("skips oversized records without losing later status events", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "codex-rollout-large-"));
+    const sessions = path.join(root, "sessions");
+    await mkdir(sessions, { recursive: true });
+    const file = path.join(sessions, `rollout-${threadId}.jsonl`);
+    const event = JSON.stringify({
+      type: "event_msg",
+      timestamp: "2026-07-16T10:03:00Z",
+      payload: { type: "task_complete", turn_id: "after-large-record" }
+    });
+    await writeFile(file, `${"x".repeat(1024 * 1024 + 1)}\n${event}\n`);
+
+    const events: ParsedRolloutEvent[] = [];
+    const watcher = new RolloutWatcher(
+      sessions,
+      {},
+      false,
+      (parsed) => events.push(parsed),
+      () => undefined
+    );
+    await watcher.start();
+    expect(events).toHaveLength(1);
+    expect(events[0]?.event.type).toBe("turn-completed");
+    await watcher.stop();
+  });
+
+  it("restarts from byte zero when a rollout file is replaced", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "codex-rollout-rotation-"));
+    const sessions = path.join(root, "sessions");
+    await mkdir(sessions, { recursive: true });
+    const file = path.join(sessions, `rollout-${threadId}.jsonl`);
+    await writeFile(file, `${rolloutLine("task_started", "before-rotation")}\n`);
+
+    const events: ParsedRolloutEvent[] = [];
+    const watcher = new RolloutWatcher(
+      sessions,
+      {},
+      false,
+      (event) => events.push(event),
+      () => undefined
+    );
+    await watcher.start();
+    expect(events).toHaveLength(1);
+
+    const replacement = `${file}.replacement`;
+    await writeFile(replacement, `${rolloutLine("task_complete", "after-rotation")}\n`);
+    await rename(replacement, file);
+    await waitFor(
+      () => events.some(({ event }) => event.type === "turn-completed"),
+      "Timed out waiting for rollout event"
+    );
     await watcher.stop();
   });
 });
 
-async function waitFor(predicate: () => boolean): Promise<void> {
-  const timeout = Date.now() + 2_000;
-  while (!predicate()) {
-    if (Date.now() > timeout) throw new Error("Timed out waiting for rollout event");
-    await new Promise((resolve) => setTimeout(resolve, 20));
-  }
+function rolloutLine(type: string, turnId: string): string {
+  return JSON.stringify({
+    type: "event_msg",
+    timestamp: new Date().toISOString(),
+    payload: { type, turn_id: turnId }
+  });
 }

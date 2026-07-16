@@ -11,6 +11,7 @@ import {
   type WillAppearEvent,
   type WillDisappearEvent
 } from "@elgato/streamdeck";
+import type { JsonValue } from "@elgato/utils";
 
 import { assignMostRecent, type TilePosition } from "../assignment";
 import { ACTION_UUID, DOUBLE_TAP_MS } from "../constants";
@@ -44,15 +45,17 @@ export class StatusTileAction extends SingletonAction<ActionSettings> {
   private readonly presses = new Map<string, PressCapture>();
   private readonly previousTaps = new Map<string, PreviousTap>();
   private inspectorContextId: string | undefined;
+  private renderRequested = false;
+  private renderInProgress = false;
 
   attach(coordinator: StatusCoordinator): void {
     this.unsubscribe?.();
     this.coordinator = coordinator;
     this.unsubscribe = coordinator.subscribe(() => {
-      void this.renderAll();
+      this.requestRender();
       void this.sendInspectorSnapshot();
     });
-    void this.renderAll();
+    this.requestRender();
   }
 
   override onWillAppear(event: WillAppearEvent<ActionSettings>): void {
@@ -66,7 +69,7 @@ export class StatusTileAction extends SingletonAction<ActionSettings> {
       row: coordinates.row,
       column: coordinates.column
     });
-    void this.renderAll();
+    this.requestRender();
   }
 
   override onWillDisappear(event: WillDisappearEvent<ActionSettings>): void {
@@ -76,7 +79,7 @@ export class StatusTileAction extends SingletonAction<ActionSettings> {
     this.renderedImages.delete(event.action.id);
     this.presses.delete(event.action.id);
     this.previousTaps.delete(event.action.id);
-    void this.renderAll();
+    this.requestRender();
   }
 
   override onKeyDown(event: KeyDownEvent<ActionSettings>): void {
@@ -91,6 +94,10 @@ export class StatusTileAction extends SingletonAction<ActionSettings> {
     const contextId = event.action.id;
     const capture = this.presses.get(contextId);
     this.presses.delete(contextId);
+    if (this.coordinator?.navigationDisabled) {
+      await event.action.showAlert();
+      return;
+    }
     const threadId = capture?.threadId;
     if (!threadId) {
       await event.action.showAlert();
@@ -132,9 +139,7 @@ export class StatusTileAction extends SingletonAction<ActionSettings> {
     if (this.inspectorContextId === event.action.id) this.inspectorContextId = undefined;
   }
 
-  override async onSendToPlugin(
-    event: SendToPluginEvent<import("@elgato/utils").JsonValue, ActionSettings>
-  ): Promise<void> {
+  override async onSendToPlugin(event: SendToPluginEvent<JsonValue, ActionSettings>): Promise<void> {
     const coordinator = this.coordinator;
     if (!coordinator) return;
     const command = parseCommand(event.payload);
@@ -169,7 +174,7 @@ export class StatusTileAction extends SingletonAction<ActionSettings> {
           });
           return;
       }
-      await streamDeck.ui.sendToPropertyInspector(coordinator.propertySnapshot() as never);
+      await streamDeck.ui.sendToPropertyInspector(coordinator.propertySnapshot());
     } catch (error) {
       await streamDeck.ui.sendToPropertyInspector({ type: "error", message: toErrorMessage(error) });
     }
@@ -180,25 +185,44 @@ export class StatusTileAction extends SingletonAction<ActionSettings> {
     const assignments = assignMostRecent(this.positions.values(), coordinator?.snapshot().values() ?? []);
     this.renderedThreads.clear();
 
-    const ranks = rankByContext(this.positions.values());
     await Promise.all(
       [...this.visibleActions].map(async ([contextId, key]) => {
-        const rank = ranks.get(contextId) ?? 1;
-        const snapshot = assignments.get(contextId);
+        const { rank = 1, snapshot } = assignments.get(contextId) ?? {};
         let image: string;
-        if (snapshot) {
+        if (coordinator?.unavailable) {
+          image = renderIntegrationError(rank);
+        } else if (snapshot) {
           this.renderedThreads.set(contextId, snapshot);
           image = renderStatusTile(snapshot.state, snapshot.thread.title, rank);
-        } else if (coordinator?.unavailable) {
-          image = renderIntegrationError(rank);
         } else {
           image = renderEmptyTile(rank);
         }
         if (this.renderedImages.get(contextId) === image) return;
-        this.renderedImages.set(contextId, image);
         await key.setImage(image);
+        this.renderedImages.set(contextId, image);
       })
     );
+  }
+
+  private requestRender(): void {
+    this.renderRequested = true;
+    if (this.renderInProgress) return;
+    this.renderInProgress = true;
+    void this.drainRenders();
+  }
+
+  private async drainRenders(): Promise<void> {
+    try {
+      while (this.renderRequested) {
+        this.renderRequested = false;
+        await this.renderAll();
+      }
+    } catch (error) {
+      streamDeck.logger.error(`Tile rendering failed: ${toErrorMessage(error)}`);
+    } finally {
+      this.renderInProgress = false;
+      if (this.renderRequested) this.requestRender();
+    }
   }
 
   private async sendInspectorSnapshot(): Promise<void> {
@@ -206,23 +230,12 @@ export class StatusTileAction extends SingletonAction<ActionSettings> {
     const coordinator = this.coordinator;
     if (!contextId || !coordinator) return;
     if (!this.visibleActions.has(contextId)) return;
-    await streamDeck.ui.sendToPropertyInspector(coordinator.propertySnapshot() as never);
+    try {
+      await streamDeck.ui.sendToPropertyInspector(coordinator.propertySnapshot());
+    } catch (error) {
+      streamDeck.logger.debug(`Property inspector update skipped: ${toErrorMessage(error)}`);
+    }
   }
-}
-
-function rankByContext(tiles: Iterable<TilePosition>): Map<string, number> {
-  const grouped = new Map<string, TilePosition[]>();
-  for (const tile of tiles) {
-    const values = grouped.get(tile.deviceId) ?? [];
-    values.push(tile);
-    grouped.set(tile.deviceId, values);
-  }
-  const ranks = new Map<string, number>();
-  for (const values of grouped.values()) {
-    values.sort((a, b) => a.row - b.row || a.column - b.column || a.contextId.localeCompare(b.contextId));
-    values.forEach((tile, index) => ranks.set(tile.contextId, index + 1));
-  }
-  return ranks;
 }
 
 function parseCommand(payload: unknown): PropertyInspectorCommand | undefined {
@@ -235,9 +248,10 @@ function parseCommand(payload: unknown): PropertyInspectorCommand | undefined {
     case "reinstall-hooks":
     case "copy-diagnostics":
       return { type: payload.type };
-    case "set-enhanced-status":
-      if (typeof (payload as { enabled?: unknown }).enabled !== "boolean") return undefined;
-      return { type: payload.type, enabled: Boolean((payload as { enabled?: unknown }).enabled) };
+    case "set-enhanced-status": {
+      const enabled = (payload as { enabled?: unknown }).enabled;
+      return typeof enabled === "boolean" ? { type: payload.type, enabled } : undefined;
+    }
     case "set-codex-home": {
       const value = (payload as { path?: unknown }).path;
       if (typeof value !== "string") return undefined;

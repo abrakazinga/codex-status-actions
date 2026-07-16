@@ -24,7 +24,7 @@ The separate process cannot observe the private in-memory status of tasks owned 
 
 ### Rollout status
 
-`RolloutWatcher` recursively watches JSONL files below `$CODEX_HOME/sessions`. It tails by persisted byte offset, retains incomplete lines, handles truncation, and deduplicates replayed events.
+`RolloutWatcher` recursively watches JSONL files below `$CODEX_HOME/sessions`. It streams bounded chunks, commits offsets only through complete lines, detects truncation and file replacement, skips oversized records, and deduplicates replayed events.
 
 Persisted task start/completion/error records feed a deterministic reducer. On first installation, historical completions are acknowledged so existing tasks do not all turn green. Subsequent completions remain unread across Stream Deck restarts.
 

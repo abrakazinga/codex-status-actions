@@ -19,4 +19,10 @@ describe("tile renderer", () => {
     expect(svg).toContain("&amp;");
     expect(svg).not.toContain('<text x="13" y="105"[^>]*><OPEN');
   });
+
+  it("uses both lines and an ellipsis for a long unbroken title", () => {
+    const svg = renderStatusTile("idle", "abcdefghijklmnopqrstuvwxyz0123456789", 1);
+    expect(svg).toContain(">ABCDEFGHIJKLMNOP</text>");
+    expect(svg).toContain(">QRSTUVWXYZ01234…</text>");
+  });
 });

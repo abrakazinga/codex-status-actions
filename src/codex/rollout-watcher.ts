@@ -5,6 +5,9 @@ import chokidar, { type FSWatcher } from "chokidar";
 import type { StatusEvent } from "../status/reducer";
 import { isThreadId } from "../util";
 
+const READ_CHUNK_BYTES = 64 * 1024;
+const MAX_LINE_BYTES = 1024 * 1024;
+
 interface RolloutEvent {
   type?: string;
   timestamp?: string;
@@ -16,7 +19,7 @@ interface RolloutEvent {
 
 interface FileState {
   offset: number;
-  remainder: string;
+  identity?: string;
   processing?: Promise<void>;
 }
 
@@ -36,7 +39,8 @@ export class RolloutWatcher {
     private readonly storedOffsets: Record<string, number>,
     private readonly firstInstallation: boolean,
     private readonly onEvent: (event: ParsedRolloutEvent) => void,
-    private readonly onOffsetsChanged: (offsets: Record<string, number>) => void
+    private readonly onOffsetsChanged: (offsets: Record<string, number>) => void,
+    private readonly onError: (error: unknown) => void = () => undefined
   ) {}
 
   async start(): Promise<void> {
@@ -48,8 +52,14 @@ export class RolloutWatcher {
     });
     this.watcher.on("add", (filePath) => this.queue(filePath));
     this.watcher.on("change", (filePath) => this.queue(filePath));
+    this.watcher.on("error", (error) => this.onError(error));
+    const watcher = this.watcher;
     await new Promise<void>((resolve, reject) => {
-      this.watcher?.once("ready", () => {
+      const onStartupError = (error: unknown): void =>
+        reject(error instanceof Error ? error : new Error("Rollout watcher startup failed"));
+      watcher.once("error", onStartupError);
+      watcher.once("ready", () => {
+        watcher.off("error", onStartupError);
         const pending = [...this.files.values()]
           .map((state) => state.processing)
           .filter((value): value is Promise<void> => Boolean(value));
@@ -58,7 +68,6 @@ export class RolloutWatcher {
           resolve();
         }, reject);
       });
-      this.watcher?.once("error", reject);
     });
   }
 
@@ -69,39 +78,72 @@ export class RolloutWatcher {
 
   private queue(filePath: string): void {
     const existing = this.files.get(filePath) ?? {
-      offset: this.storedOffsets[filePath] ?? 0,
-      remainder: ""
+      offset: this.storedOffsets[filePath] ?? 0
     };
     const isNew = !this.files.has(filePath);
     this.files.set(filePath, existing);
     const baseline = this.firstInstallation && this.initialScan && isNew && existing.offset === 0;
     existing.processing = (existing.processing ?? Promise.resolve())
       .then(() => this.readNewContent(filePath, existing, baseline))
-      .catch(() => undefined);
+      .catch((error: unknown) => {
+        if ((error as NodeJS.ErrnoException).code !== "ENOENT") this.onError(error);
+      });
   }
 
   private async readNewContent(filePath: string, state: FileState, baseline: boolean): Promise<void> {
     const metadata = await stat(filePath);
-    if (metadata.size < state.offset) {
-      state.offset = 0;
-      state.remainder = "";
-    }
+    const identity = `${String(metadata.dev)}:${String(metadata.ino)}`;
+    if ((state.identity && state.identity !== identity) || metadata.size < state.offset) state.offset = 0;
+    state.identity = identity;
     if (metadata.size === state.offset) return;
 
-    const length = metadata.size - state.offset;
     const handle = await open(filePath, "r");
     try {
-      const buffer = Buffer.alloc(length);
-      await handle.read(buffer, 0, length, state.offset);
-      state.offset = metadata.size;
-      const text = state.remainder + buffer.toString("utf8");
-      const lines = text.split("\n");
-      state.remainder = lines.pop() ?? "";
       const threadId = threadIdFromPath(filePath);
-      if (!threadId) return;
+      let readOffset = state.offset;
+      let pending = Buffer.alloc(0);
+      let discardedBytes = 0;
+      let offsetChanged = false;
 
-      for (const line of lines) this.parseLine(threadId, line, baseline);
-      this.onOffsetsChanged(this.currentOffsets());
+      while (readOffset < metadata.size) {
+        const length = Math.min(READ_CHUNK_BYTES, metadata.size - readOffset);
+        const buffer = Buffer.allocUnsafe(length);
+        const { bytesRead } = await handle.read(buffer, 0, length, readOffset);
+        if (bytesRead === 0) break;
+        readOffset += bytesRead;
+        let data = buffer.subarray(0, bytesRead);
+
+        if (discardedBytes > 0) {
+          const newline = data.indexOf(0x0a);
+          if (newline < 0) {
+            discardedBytes += data.length;
+            continue;
+          }
+          state.offset += discardedBytes + newline + 1;
+          discardedBytes = 0;
+          offsetChanged = true;
+          data = data.subarray(newline + 1);
+        }
+
+        if (pending.length > 0) data = Buffer.concat([pending, data]);
+        let start = 0;
+        for (let newline = data.indexOf(0x0a); newline >= 0; newline = data.indexOf(0x0a, start)) {
+          const line = data.subarray(start, newline);
+          state.offset += line.length + 1;
+          offsetChanged = true;
+          if (threadId && line.length <= MAX_LINE_BYTES) {
+            this.parseLine(threadId, line.toString("utf8"), baseline);
+          }
+          start = newline + 1;
+        }
+        pending = Buffer.from(data.subarray(start));
+        if (pending.length > MAX_LINE_BYTES) {
+          discardedBytes = pending.length;
+          pending = Buffer.alloc(0);
+        }
+      }
+
+      if (offsetChanged) this.onOffsetsChanged(this.currentOffsets());
     } finally {
       await handle.close();
     }

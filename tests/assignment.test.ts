@@ -37,8 +37,8 @@ describe("most recent assignment", () => {
       ],
       [snapshot("old", 10), snapshot("new", 20)]
     );
-    expect(assignments.get("top")?.thread.id).toBe("new");
-    expect(assignments.get("bottom")?.thread.id).toBe("old");
-    expect(assignments.get("other")?.thread.id).toBe("new");
+    expect(assignments.get("top")).toMatchObject({ rank: 1, snapshot: { thread: { id: "new" } } });
+    expect(assignments.get("bottom")).toMatchObject({ rank: 2, snapshot: { thread: { id: "old" } } });
+    expect(assignments.get("other")).toMatchObject({ rank: 1, snapshot: { thread: { id: "new" } } });
   });
 });

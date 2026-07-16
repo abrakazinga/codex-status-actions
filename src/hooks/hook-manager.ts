@@ -1,8 +1,9 @@
-import { chmod, copyFile, mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import { chmod, copyFile, mkdir, readFile, rename, rm, rmdir, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { randomUUID } from "node:crypto";
 
 import type { AppServerClient, HookMetadata } from "../codex/app-server-client";
-import { HOOK_DIRECTORY_NAME, HOOK_HELPER_NAME } from "../constants";
+import { HOOK_DIRECTORY_NAME, HOOK_HELPER_NAME, HOOK_SOCKET_NAME } from "../constants";
 import type { HookTrustStatus } from "../types";
 
 type JsonRecord = Record<string, unknown>;
@@ -28,7 +29,9 @@ export class HookManager {
   }
 
   async install(): Promise<boolean> {
-    await mkdir(path.dirname(this.helperPath), { recursive: true, mode: 0o700 });
+    const directory = path.dirname(this.helperPath);
+    await mkdir(directory, { recursive: true, mode: 0o700 });
+    await chmod(directory, 0o700);
     const helperChanged = await this.writeIfChanged(this.helperPath, helperScript(), 0o700);
     const config = await this.readHooksFile();
     const changed = this.mergeOwnedHooks(config);
@@ -36,12 +39,17 @@ export class HookManager {
     return changed || helperChanged;
   }
 
-  async uninstall(cwd: string): Promise<{ manualCleanupRequired: boolean }> {
-    const hooks = await this.listOwned(cwd).catch(() => []);
-    if (hooks.length > 0) {
-      await this.appServer.writeHookStates(
-        Object.fromEntries(hooks.map((hook) => [hook.key, { enabled: false, trusted_hash: null }]))
-      );
+  async uninstall(cwd: string): Promise<{ manualCleanupRequired: boolean; trustCleanupFailed: boolean }> {
+    let trustCleanupFailed = false;
+    try {
+      const hooks = await this.listOwned(cwd);
+      if (hooks.length > 0) {
+        await this.appServer.writeHookStates(
+          Object.fromEntries(hooks.map((hook) => [hook.key, { enabled: false, trusted_hash: null }]))
+        );
+      }
+    } catch {
+      trustCleanupFailed = true;
     }
 
     const config = await this.readHooksFile();
@@ -65,8 +73,13 @@ export class HookManager {
       config.hooks = hooksRoot;
       await this.writeHooksFile(config);
     }
-    await rm(this.helperPath, { force: true });
-    return { manualCleanupRequired };
+    const directory = path.dirname(this.helperPath);
+    await Promise.all([
+      rm(this.helperPath, { force: true }),
+      rm(path.join(directory, HOOK_SOCKET_NAME), { force: true })
+    ]);
+    await rmdir(directory).catch(() => undefined);
+    return { manualCleanupRequired, trustCleanupFailed };
   }
 
   async trust(cwd: string): Promise<void> {
@@ -164,13 +177,17 @@ export class HookManager {
       await stat(this.hooksPath);
       const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
       await copyFile(this.hooksPath, `${this.hooksPath}.codex-status-actions-${timestamp}.bak`);
-    } catch {
-      // No existing file to back up.
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     }
-    const temporaryPath = `${this.hooksPath}.${String(process.pid)}.tmp`;
-    await writeFile(temporaryPath, `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 });
-    await rename(temporaryPath, this.hooksPath);
-    await chmod(this.hooksPath, 0o600);
+    const temporaryPath = `${this.hooksPath}.${randomUUID()}.tmp`;
+    try {
+      await writeFile(temporaryPath, `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 });
+      await rename(temporaryPath, this.hooksPath);
+      await chmod(this.hooksPath, 0o600);
+    } finally {
+      await rm(temporaryPath, { force: true });
+    }
   }
 
   private async writeIfChanged(filePath: string, content: string, mode: number): Promise<boolean> {
@@ -179,13 +196,17 @@ export class HookManager {
         await chmod(filePath, mode);
         return false;
       }
-    } catch {
-      // The file will be created below.
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     }
-    const temporaryPath = `${filePath}.${String(process.pid)}.tmp`;
-    await writeFile(temporaryPath, content, { mode });
-    await rename(temporaryPath, filePath);
-    await chmod(filePath, mode);
+    const temporaryPath = `${filePath}.${randomUUID()}.tmp`;
+    try {
+      await writeFile(temporaryPath, content, { mode });
+      await rename(temporaryPath, filePath);
+      await chmod(filePath, mode);
+    } finally {
+      await rm(temporaryPath, { force: true });
+    }
     return true;
   }
 }

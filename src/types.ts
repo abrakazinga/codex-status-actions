@@ -1,6 +1,8 @@
+import type { JsonObject } from "@elgato/utils";
+
 export type ThreadVisualState = "idle" | "unread" | "working" | "needs-user" | "error";
 
-export type AssignmentMode = "recent";
+type AssignmentMode = "recent";
 
 export interface ThreadRecord {
   id: string;
@@ -40,7 +42,7 @@ export interface HookEnvelope {
 
 export type HookTrustStatus = "missing" | "untrusted" | "trusted" | "modified" | "disabled" | "error";
 
-export interface HealthSnapshot {
+export interface HealthSnapshot extends JsonObject {
   codexBinary: "checking" | "available" | "missing";
   catalog: "connecting" | "connected" | "disconnected";
   rolloutWatcher: "starting" | "watching" | "error";
@@ -50,14 +52,14 @@ export interface HealthSnapshot {
   message?: string;
 }
 
-export interface PersistedThreadState {
+export interface PersistedThreadState extends JsonObject {
   lastCompletionId?: string;
   lastAcknowledgedCompletionId?: string;
   error?: boolean;
   changedAt?: number;
 }
 
-export interface GlobalSettings {
+export interface GlobalSettings extends JsonObject {
   assignmentMode: AssignmentMode;
   enhancedStatusEnabled: boolean;
   codexHome?: string;
@@ -66,12 +68,15 @@ export interface GlobalSettings {
   rolloutOffsets?: Record<string, number>;
 }
 
-export interface PropertyInspectorSnapshot {
+interface PropertyInspectorSettings extends JsonObject {
+  enhancedStatusEnabled: boolean;
+  codexHome?: string;
+}
+
+export interface PropertyInspectorSnapshot extends JsonObject {
   type: "snapshot";
-  settings: GlobalSettings;
+  settings: PropertyInspectorSettings;
   health: HealthSnapshot;
-  hookCount: number;
-  codexHome: string;
   version: string;
 }
 
@@ -82,10 +87,3 @@ export type PropertyInspectorCommand =
   | { type: "set-enhanced-status"; enabled: boolean }
   | { type: "set-codex-home"; path?: string }
   | { type: "copy-diagnostics" };
-
-export interface CodexStatusProvider {
-  start(): Promise<void>;
-  stop(): Promise<void>;
-  snapshot(): ReadonlyMap<string, ThreadStatusSnapshot>;
-  subscribe(listener: () => void): () => void;
-}

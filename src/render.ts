@@ -55,19 +55,10 @@ function splitTitle(input: string): [string, string?] {
   const clean = input.replace(/\s+/g, " ").trim().toUpperCase();
   if (clean.length <= 16) return [clean];
 
-  const words = clean.split(" ");
-  let first = "";
-  while (words.length > 0) {
-    const nextWord = words[0] ?? "";
-    const candidate = first ? `${first} ${nextWord}` : nextWord;
-    if (candidate.length > 16 && first) break;
-    first = candidate.slice(0, 16);
-    words.shift();
-    if (first.length >= 16) break;
-  }
-  const second = words.join(" ").slice(0, 15);
-  const lineOne = first || clean.slice(0, 16);
-  return second ? [lineOne, `${second}${words.join(" ").length > 15 ? "…" : ""}`] : [lineOne];
+  const breakAt = clean.lastIndexOf(" ", 16);
+  const lineOne = clean.slice(0, breakAt > 0 ? breakAt : 16);
+  const remainder = clean.slice(breakAt > 0 ? breakAt + 1 : 16);
+  return [lineOne, remainder.length > 16 ? `${remainder.slice(0, 15)}…` : remainder];
 }
 
 function escapeXml(value: string): string {

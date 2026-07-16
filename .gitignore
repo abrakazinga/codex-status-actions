@@ -1,4 +1,5 @@
 node_modules/
+coverage/
 release/
 *.streamDeckPlugin
 com.abrakazinga.codex-status-actions.sdPlugin/bin/

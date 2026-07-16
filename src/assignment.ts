@@ -7,6 +7,11 @@ export interface TilePosition {
   column: number;
 }
 
+export interface TileAssignment {
+  rank: number;
+  snapshot?: ThreadStatusSnapshot;
+}
+
 export function sortRecentThreads(threads: Iterable<ThreadStatusSnapshot>): ThreadStatusSnapshot[] {
   return [...threads]
     .filter(({ thread }) => !thread.archived && !thread.ephemeral && !thread.parentThreadId)
@@ -19,7 +24,7 @@ export function sortRecentThreads(threads: Iterable<ThreadStatusSnapshot>): Thre
 export function assignMostRecent(
   tiles: Iterable<TilePosition>,
   threads: Iterable<ThreadStatusSnapshot>
-): Map<string, ThreadStatusSnapshot | undefined> {
+): Map<string, TileAssignment> {
   const recent = sortRecentThreads(threads);
   const byDevice = new Map<string, TilePosition[]>();
 
@@ -29,12 +34,18 @@ export function assignMostRecent(
     byDevice.set(tile.deviceId, deviceTiles);
   }
 
-  const result = new Map<string, ThreadStatusSnapshot | undefined>();
+  const result = new Map<string, TileAssignment>();
   for (const deviceTiles of byDevice.values()) {
     deviceTiles.sort(
       (a, b) => a.row - b.row || a.column - b.column || a.contextId.localeCompare(b.contextId)
     );
-    deviceTiles.forEach((tile, index) => result.set(tile.contextId, recent[index]));
+    deviceTiles.forEach((tile, index) => {
+      const snapshot = recent[index];
+      result.set(tile.contextId, {
+        rank: index + 1,
+        ...(snapshot ? { snapshot } : {})
+      });
+    });
   }
   return result;
 }

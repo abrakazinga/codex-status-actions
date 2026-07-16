@@ -25,8 +25,12 @@ The hook process receives the standard Codex hook object, which may include sens
 
 Stream Deck global settings store byte offsets and small state identifiers required for restart recovery. The plugin does not copy rollout files or maintain a transcript database.
 
+The property inspector receives only the enhanced-status toggle and optional `CODEX_HOME` override. Persisted task identifiers and rollout paths are not sent to its webview.
+
 The hook socket and helper live under `$CODEX_HOME/codex-status-actions`. The directory is mode `0700`; the socket and `hooks.json` are mode `0600`.
 
 ## Diagnostics
 
-“Copy Safe Diagnostics” includes plugin/platform versions, configured Codex home, connection states, task count, hook count, and whether enhanced status is enabled. It excludes task IDs, titles, paths, transcripts, and event content.
+“Copy Safe Diagnostics” includes plugin/platform versions, configured Codex home, connection states, task count, hook count, and whether enhanced status is enabled. It excludes task IDs, titles, task working directories, rollout paths, transcripts, and event content.
+
+Raw app-server stderr is drained but never copied into plugin logs; only a content-free diagnostic marker is emitted.

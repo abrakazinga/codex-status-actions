@@ -60,29 +60,35 @@ export class AppServerClient extends EventEmitter {
   }
 
   get connected(): boolean {
-    return Boolean(this.child && !this.child.killed);
+    return Boolean(this.child && this.child.exitCode === null && this.child.signalCode === null);
   }
 
   async start(): Promise<void> {
-    if (this.connected) return;
     if (this.starting) return this.starting;
+    if (this.connected) return;
     this.stopped = false;
-    this.starting = this.startProcess().finally(() => {
-      this.starting = undefined;
-    });
+    this.starting = this.startProcess()
+      .catch(async (error: unknown) => {
+        await this.stop();
+        throw error;
+      })
+      .finally(() => {
+        this.starting = undefined;
+      });
     return this.starting;
   }
 
   async stop(): Promise<void> {
     this.stopped = true;
+    this.rejectPending(new Error("Codex app-server stopped"));
     const child = this.child;
     this.child = undefined;
-    if (!child || child.killed) return;
+    if (!child || child.exitCode !== null || child.signalCode !== null) return;
 
     child.kill("SIGTERM");
     await new Promise<void>((resolve) => {
       const timer = setTimeout(() => {
-        if (!child.killed) child.kill("SIGKILL");
+        if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
         resolve();
       }, 1_000);
       child.once("exit", () => {
@@ -103,7 +109,8 @@ export class AppServerClient extends EventEmitter {
         limit: Math.min(limit - records.length, 100),
         sortKey: "updated_at",
         sortDirection: "desc",
-        archived: false
+        archived: false,
+        modelProviders: []
       });
       const page = threadListSchema.parse(raw);
       for (const thread of page.data) {
@@ -163,9 +170,11 @@ export class AppServerClient extends EventEmitter {
       if (!this.stopped) this.handleExit(error);
     });
     child.stderr.setEncoding("utf8");
-    child.stderr.on("data", (chunk: string) => {
-      const message = chunk.trim();
-      if (message) this.emit("diagnostic", message.slice(0, 500));
+    let reportedStderr = false;
+    child.stderr.on("data", () => {
+      if (reportedStderr) return;
+      reportedStderr = true;
+      this.emit("diagnostic", "Codex app-server wrote to stderr; content suppressed for privacy");
     });
     child.once("error", (error) => this.handleExit(error));
     child.once("exit", (code, signal) => {
@@ -238,11 +247,15 @@ export class AppServerClient extends EventEmitter {
 
   private handleExit(error: unknown): void {
     const message = new Error(toErrorMessage(error));
+    this.rejectPending(message);
+    this.emit("disconnected", message);
+  }
+
+  private rejectPending(error: Error): void {
     for (const pending of this.pending.values()) {
       clearTimeout(pending.timeout);
-      pending.reject(message);
+      pending.reject(error);
     }
     this.pending.clear();
-    this.emit("disconnected", message);
   }
 }

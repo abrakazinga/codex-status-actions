@@ -28,6 +28,9 @@ export function initialRuntimeState(persisted?: PersistedThreadState): ThreadRun
 }
 
 export function reduceRuntimeState(previous: ThreadRuntimeState, event: StatusEvent): ThreadRuntimeState {
+  const timestamp = event.type === "hook" ? event.envelope.timestamp : event.timestamp;
+  if (timestamp < previous.changedAt) return previous;
+
   switch (event.type) {
     case "turn-started":
       return {
@@ -40,7 +43,7 @@ export function reduceRuntimeState(previous: ThreadRuntimeState, event: StatusEv
         ...(event.turnId ? { turnId: event.turnId } : {})
       };
     case "activity":
-      return { ...previous, needsUser: false, changedAt: event.timestamp };
+      return { ...previous, working: true, needsUser: false, changedAt: event.timestamp };
     case "turn-completed": {
       const completionId = event.turnId ?? `${event.threadId}:${String(event.timestamp)}`;
       return {

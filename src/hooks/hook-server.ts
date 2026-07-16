@@ -7,16 +7,18 @@ import { z } from "zod";
 import { HOOK_DIRECTORY_NAME, HOOK_SOCKET_NAME, MAX_HOOK_PAYLOAD_BYTES } from "../constants";
 import type { HookEnvelope } from "../types";
 
-const envelopeSchema = z.object({
-  version: z.literal(1),
-  event: z.enum(["permission-requested", "question-opened", "question-closed"]),
-  threadId: z.uuid(),
-  turnId: z
-    .string()
-    .regex(/^[A-Za-z0-9_-]{1,128}$/)
-    .optional(),
-  timestamp: z.number().int().positive()
-});
+const envelopeSchema = z
+  .object({
+    version: z.literal(1),
+    event: z.enum(["permission-requested", "question-opened", "question-closed"]),
+    threadId: z.uuid(),
+    turnId: z
+      .string()
+      .regex(/^[A-Za-z0-9_-]{1,128}$/)
+      .optional(),
+    timestamp: z.number().int().positive()
+  })
+  .strict();
 
 export class HookServer {
   private server: Server | undefined;
@@ -36,7 +38,6 @@ export class HookServer {
     await unlink(this.socketPath).catch(() => undefined);
 
     const server = createServer((request, response) => void this.handleRequest(request, response));
-    this.server = server;
     await new Promise<void>((resolve, reject) => {
       server.once("error", reject);
       server.listen(this.socketPath, () => {
@@ -44,7 +45,14 @@ export class HookServer {
         resolve();
       });
     });
-    await chmod(this.socketPath, 0o600);
+    try {
+      await chmod(this.socketPath, 0o600);
+      this.server = server;
+    } catch (error) {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+      await unlink(this.socketPath).catch(() => undefined);
+      throw error;
+    }
   }
 
   async stop(): Promise<void> {

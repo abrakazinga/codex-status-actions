@@ -2,19 +2,18 @@ import streamDeck from "@elgato/streamdeck";
 
 import { StatusTileAction } from "./actions/status-tile-action";
 import { StatusCoordinator } from "./status/coordinator";
-import type { GlobalSettings } from "./types";
 
-streamDeck.logger.setLevel("debug");
+streamDeck.logger.setLevel("info");
 
 const action = new StatusTileAction();
 streamDeck.actions.registerAction(action);
 
 await streamDeck.connect();
 
-const storedSettings = (await streamDeck.settings.getGlobalSettings()) as Partial<GlobalSettings>;
+const storedSettings = await streamDeck.settings.getGlobalSettings();
 const coordinator = new StatusCoordinator(
   storedSettings,
-  async (settings) => streamDeck.settings.setGlobalSettings(settings as never),
+  async (settings) => streamDeck.settings.setGlobalSettings(settings),
   (message) => streamDeck.logger.debug(message)
 );
 action.attach(coordinator);
