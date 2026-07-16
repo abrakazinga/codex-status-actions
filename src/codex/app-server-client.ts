@@ -165,20 +165,25 @@ export class AppServerClient extends EventEmitter {
     this.child = child;
 
     const lines = createInterface({ input: child.stdout, crlfDelay: Infinity });
-    lines.on("line", (line) => this.handleLine(line));
+    lines.on("line", (line) => {
+      if (this.child === child) this.handleLine(line);
+    });
     child.stdin.on("error", (error) => {
-      if (!this.stopped) this.handleExit(error);
+      if (this.child === child && !this.stopped) this.handleExit(error);
     });
     child.stderr.setEncoding("utf8");
     let reportedStderr = false;
     child.stderr.on("data", () => {
-      if (reportedStderr) return;
+      if (this.child !== child || reportedStderr) return;
       reportedStderr = true;
       this.emit("diagnostic", "Codex app-server wrote to stderr; content suppressed for privacy");
     });
-    child.once("error", (error) => this.handleExit(error));
+    child.once("error", (error) => {
+      if (this.child === child) this.handleExit(error);
+    });
     child.once("exit", (code, signal) => {
-      if (this.child === child) this.child = undefined;
+      if (this.child !== child) return;
+      this.child = undefined;
       if (!this.stopped)
         this.handleExit(new Error(`Codex app-server exited (${String(code ?? signal ?? "unknown")})`));
     });

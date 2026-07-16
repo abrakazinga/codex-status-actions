@@ -1,10 +1,10 @@
-import { chmod, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { spawn } from "node:child_process";
 import { request } from "node:http";
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { AppServerClient } from "../src/codex/app-server-client";
 import { HookManager } from "../src/hooks/hook-manager";
@@ -13,6 +13,12 @@ import type { HookEnvelope } from "../src/types";
 import { waitFor } from "./helpers";
 
 const threadId = "019f6b6d-644d-7701-8858-9da6837aaaaa";
+const servers = new Set<HookServer>();
+
+afterEach(async () => {
+  await Promise.all([...servers].map((server) => server.stop()));
+  servers.clear();
+});
 
 describe("Codex hook integration", () => {
   it("preserves existing hooks and forwards only the reduced envelope", async () => {
@@ -25,6 +31,9 @@ describe("Codex hook integration", () => {
     );
     const manager = new HookManager(codexHome, new AppServerClient("/bin/false"));
     await manager.install();
+    await chmod(manager.hooksPath, 0o644);
+    expect(await manager.install()).toBe(false);
+    expect((await stat(manager.hooksPath)).mode & 0o777).toBe(0o600);
     const config = JSON.parse(await readFile(path.join(codexHome, "hooks.json"), "utf8")) as {
       hooks: { PreToolUse: unknown[]; PermissionRequest: unknown[]; PostToolUse: unknown[] };
     };
@@ -33,9 +42,11 @@ describe("Codex hook integration", () => {
     expect(config.hooks.PostToolUse).toHaveLength(1);
 
     let received: HookEnvelope | undefined;
-    const server = new HookServer(codexHome, (envelope) => {
-      received = envelope;
-    });
+    const server = trackServer(
+      new HookServer(codexHome, (envelope) => {
+        received = envelope;
+      })
+    );
     await server.start();
     await runHelper(manager.helperPath, {
       session_id: threadId,
@@ -54,7 +65,6 @@ describe("Codex hook integration", () => {
     });
     expect(typeof received?.timestamp).toBe("number");
     expect(JSON.stringify(received)).not.toContain("TOP SECRET");
-    await server.stop();
   });
 
   it("exits successfully when Stream Deck is unavailable", async () => {
@@ -95,10 +105,12 @@ describe("Codex hook integration", () => {
   it("rejects hook envelopes with fields outside the allow-list", async () => {
     const codexHome = await mkdtemp("/tmp/csa-hooks-");
     let received = false;
-    const server = new HookServer(codexHome, () => {
-      received = true;
-    });
-    await server.start();
+    const server = trackServer(
+      new HookServer(codexHome, () => {
+        received = true;
+      })
+    );
+    await Promise.all([server.start(), server.start()]);
     const status = await postEnvelope(server.socketPath, {
       version: 1,
       event: "question-opened",
@@ -108,9 +120,13 @@ describe("Codex hook integration", () => {
     });
     expect(status).toBe(400);
     expect(received).toBe(false);
-    await server.stop();
   });
 });
+
+function trackServer(server: HookServer): HookServer {
+  servers.add(server);
+  return server;
+}
 
 async function runHelper(helperPath: string, payload: object): Promise<number | null> {
   await chmod(helperPath, 0o700);

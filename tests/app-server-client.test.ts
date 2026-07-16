@@ -50,6 +50,26 @@ describe("app-server client", () => {
     await client.stop();
     await pending;
   });
+
+  it("ignores exit events from a superseded process", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "fake-codex-restart-"));
+    const executable = path.join(root, "codex");
+    await writeFile(executable, fakeCodexScript());
+    await chmod(executable, 0o700);
+
+    const client = new AppServerClient(executable);
+    clients.push(client);
+    await client.start();
+    let disconnections = 0;
+    client.on("disconnected", () => disconnections++);
+
+    const stopping = client.stop();
+    await client.start();
+    await stopping;
+
+    expect(disconnections).toBe(0);
+    expect(await client.listThreads()).toHaveLength(1);
+  });
 });
 
 function fakeCodexScript(): string {

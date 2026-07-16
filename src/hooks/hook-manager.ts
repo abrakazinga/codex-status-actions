@@ -36,6 +36,7 @@ export class HookManager {
     const config = await this.readHooksFile();
     const changed = this.mergeOwnedHooks(config);
     if (changed) await this.writeHooksFile(config);
+    else await chmod(this.hooksPath, 0o600);
     return changed || helperChanged;
   }
 

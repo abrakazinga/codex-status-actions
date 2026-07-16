@@ -34,6 +34,8 @@ describe("status reducer", () => {
       timestamp: 2
     });
     expect(visualState(state)).toBe("error");
+    state = reduceRuntimeState(state, { type: "activity", threadId, timestamp: 3 });
+    expect(visualState(state)).toBe("error");
     state = reduceRuntimeState(state, { type: "acknowledged", threadId, timestamp: 3 });
     expect(visualState(state)).toBe("error");
     state = reduceRuntimeState(state, { type: "turn-started", threadId, turnId: "turn-2", timestamp: 4 });

@@ -22,6 +22,7 @@ const envelopeSchema = z
 
 export class HookServer {
   private server: Server | undefined;
+  private starting: Promise<void> | undefined;
 
   constructor(
     private readonly codexHome: string,
@@ -34,6 +35,14 @@ export class HookServer {
 
   async start(): Promise<void> {
     if (this.server) return;
+    if (this.starting) return this.starting;
+    this.starting = this.startServer().finally(() => {
+      this.starting = undefined;
+    });
+    return this.starting;
+  }
+
+  private async startServer(): Promise<void> {
     await mkdir(path.dirname(this.socketPath), { recursive: true, mode: 0o700 });
     await unlink(this.socketPath).catch(() => undefined);
 
@@ -56,6 +65,7 @@ export class HookServer {
   }
 
   async stop(): Promise<void> {
+    await this.starting?.catch(() => undefined);
     const server = this.server;
     this.server = undefined;
     if (server) {

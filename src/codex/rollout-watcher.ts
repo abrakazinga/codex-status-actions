@@ -3,6 +3,7 @@ import { open, stat } from "node:fs/promises";
 import chokidar, { type FSWatcher } from "chokidar";
 
 import type { StatusEvent } from "../status/reducer";
+import type { RolloutFileCursor } from "../types";
 import { isThreadId } from "../util";
 
 const READ_CHUNK_BYTES = 64 * 1024;
@@ -36,10 +37,10 @@ export class RolloutWatcher {
 
   constructor(
     private readonly sessionsDirectory: string,
-    private readonly storedOffsets: Record<string, number>,
+    private readonly storedOffsets: Record<string, RolloutFileCursor>,
     private readonly firstInstallation: boolean,
     private readonly onEvent: (event: ParsedRolloutEvent) => void,
-    private readonly onOffsetsChanged: (offsets: Record<string, number>) => void,
+    private readonly onOffsetsChanged: (offsets: Record<string, RolloutFileCursor>) => void,
     private readonly onError: (error: unknown) => void = () => undefined
   ) {}
 
@@ -78,7 +79,8 @@ export class RolloutWatcher {
 
   private queue(filePath: string): void {
     const existing = this.files.get(filePath) ?? {
-      offset: this.storedOffsets[filePath] ?? 0
+      offset: this.storedOffsets[filePath]?.offset ?? 0,
+      ...(this.storedOffsets[filePath]?.identity ? { identity: this.storedOffsets[filePath].identity } : {})
     };
     const isNew = !this.files.has(filePath);
     this.files.set(filePath, existing);
@@ -93,9 +95,16 @@ export class RolloutWatcher {
   private async readNewContent(filePath: string, state: FileState, baseline: boolean): Promise<void> {
     const metadata = await stat(filePath);
     const identity = `${String(metadata.dev)}:${String(metadata.ino)}`;
-    if ((state.identity && state.identity !== identity) || metadata.size < state.offset) state.offset = 0;
+    let cursorChanged = state.identity !== identity;
+    if ((state.identity && state.identity !== identity) || metadata.size < state.offset) {
+      state.offset = 0;
+      cursorChanged = true;
+    }
     state.identity = identity;
-    if (metadata.size === state.offset) return;
+    if (metadata.size === state.offset) {
+      if (cursorChanged) this.onOffsetsChanged(this.currentOffsets());
+      return;
+    }
 
     const handle = await open(filePath, "r");
     try {
@@ -103,7 +112,6 @@ export class RolloutWatcher {
       let readOffset = state.offset;
       let pending = Buffer.alloc(0);
       let discardedBytes = 0;
-      let offsetChanged = false;
 
       while (readOffset < metadata.size) {
         const length = Math.min(READ_CHUNK_BYTES, metadata.size - readOffset);
@@ -121,7 +129,7 @@ export class RolloutWatcher {
           }
           state.offset += discardedBytes + newline + 1;
           discardedBytes = 0;
-          offsetChanged = true;
+          cursorChanged = true;
           data = data.subarray(newline + 1);
         }
 
@@ -130,7 +138,7 @@ export class RolloutWatcher {
         for (let newline = data.indexOf(0x0a); newline >= 0; newline = data.indexOf(0x0a, start)) {
           const line = data.subarray(start, newline);
           state.offset += line.length + 1;
-          offsetChanged = true;
+          cursorChanged = true;
           if (threadId && line.length <= MAX_LINE_BYTES) {
             this.parseLine(threadId, line.toString("utf8"), baseline);
           }
@@ -143,7 +151,7 @@ export class RolloutWatcher {
         }
       }
 
-      if (offsetChanged) this.onOffsetsChanged(this.currentOffsets());
+      if (cursorChanged) this.onOffsetsChanged(this.currentOffsets());
     } finally {
       await handle.close();
     }
@@ -189,8 +197,13 @@ export class RolloutWatcher {
     if (event) this.onEvent({ event, baseline });
   }
 
-  private currentOffsets(): Record<string, number> {
-    return Object.fromEntries([...this.files].map(([filePath, state]) => [filePath, state.offset]));
+  private currentOffsets(): Record<string, RolloutFileCursor> {
+    return Object.fromEntries(
+      [...this.files].map(([filePath, state]) => [
+        filePath,
+        { offset: state.offset, ...(state.identity ? { identity: state.identity } : {}) }
+      ])
+    );
   }
 }
 

@@ -59,13 +59,18 @@ export interface PersistedThreadState extends JsonObject {
   changedAt?: number;
 }
 
+export interface RolloutFileCursor extends JsonObject {
+  offset: number;
+  identity?: string;
+}
+
 export interface GlobalSettings extends JsonObject {
   assignmentMode: AssignmentMode;
   enhancedStatusEnabled: boolean;
   codexHome?: string;
   initialized?: boolean;
   threadStates?: Record<string, PersistedThreadState>;
-  rolloutOffsets?: Record<string, number>;
+  rolloutOffsets?: Record<string, RolloutFileCursor>;
 }
 
 interface PropertyInspectorSettings extends JsonObject {

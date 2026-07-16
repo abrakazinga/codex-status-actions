@@ -3,12 +3,19 @@ import path from "node:path";
 import { tmpdir } from "node:os";
 import { mkdtemp } from "node:fs/promises";
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { RolloutWatcher, type ParsedRolloutEvent } from "../src/codex/rollout-watcher";
+import type { RolloutFileCursor } from "../src/types";
 import { waitFor } from "./helpers";
 
 const threadId = "019f6b6d-644d-7701-8858-9da6837aaaaa";
+const watchers = new Set<RolloutWatcher>();
+
+afterEach(async () => {
+  await Promise.all([...watchers].map((watcher) => watcher.stop()));
+  watchers.clear();
+});
 
 describe("rollout watcher", () => {
   it("baselines old completions and emits appended turns as live", async () => {
@@ -29,6 +36,7 @@ describe("rollout watcher", () => {
       (event) => events.push(event),
       () => undefined
     );
+    watchers.add(watcher);
     await watcher.start();
     expect(events.some(({ event, baseline }) => event.type === "turn-completed" && baseline)).toBe(true);
 
@@ -56,7 +64,7 @@ describe("rollout watcher", () => {
     const splitAt = Math.floor(line.length / 2);
     await writeFile(file, line.slice(0, splitAt));
 
-    let offsets: Record<string, number> = {};
+    let offsets: Record<string, RolloutFileCursor> = {};
     const first = new RolloutWatcher(
       sessions,
       offsets,
@@ -66,9 +74,10 @@ describe("rollout watcher", () => {
         offsets = next;
       }
     );
+    watchers.add(first);
     await first.start();
     await first.stop();
-    expect(offsets[file] ?? 0).toBe(0);
+    expect(offsets[file]?.offset ?? 0).toBe(0);
 
     await appendFile(file, `${line.slice(splitAt)}\n`);
     const events: ParsedRolloutEvent[] = [];
@@ -79,6 +88,7 @@ describe("rollout watcher", () => {
       (event) => events.push(event),
       () => undefined
     );
+    watchers.add(second);
     await second.start();
     expect(events).toHaveLength(1);
     expect(events[0]?.event.type).toBe("turn-started");
@@ -105,6 +115,7 @@ describe("rollout watcher", () => {
       (parsed) => events.push(parsed),
       () => undefined
     );
+    watchers.add(watcher);
     await watcher.start();
     expect(events).toHaveLength(1);
     expect(events[0]?.event.type).toBe("turn-completed");
@@ -126,6 +137,7 @@ describe("rollout watcher", () => {
       (event) => events.push(event),
       () => undefined
     );
+    watchers.add(watcher);
     await watcher.start();
     expect(events).toHaveLength(1);
 
@@ -137,6 +149,44 @@ describe("rollout watcher", () => {
       "Timed out waiting for rollout event"
     );
     await watcher.stop();
+  });
+
+  it("detects a rollout replacement across watcher restarts", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "codex-rollout-restart-rotation-"));
+    const sessions = path.join(root, "sessions");
+    await mkdir(sessions, { recursive: true });
+    const file = path.join(sessions, `rollout-${threadId}.jsonl`);
+    await writeFile(file, `${rolloutLine("task_started", "before-restart")}\n`);
+
+    let cursors: Record<string, RolloutFileCursor> = {};
+    const first = new RolloutWatcher(
+      sessions,
+      cursors,
+      false,
+      () => undefined,
+      (next) => {
+        cursors = next;
+      }
+    );
+    watchers.add(first);
+    await first.start();
+    await first.stop();
+
+    const replacement = `${file}.replacement`;
+    await writeFile(replacement, `${rolloutLine("task_complete", "after-restart")}\n`);
+    await rename(replacement, file);
+
+    const events: ParsedRolloutEvent[] = [];
+    const second = new RolloutWatcher(
+      sessions,
+      cursors,
+      false,
+      (event) => events.push(event),
+      () => undefined
+    );
+    watchers.add(second);
+    await second.start();
+    expect(events.some(({ event }) => event.type === "turn-completed")).toBe(true);
   });
 });
 

@@ -34,12 +34,25 @@ const persistedThreadStateSchema = z.object({
   changedAt: z.number().nonnegative().optional()
 });
 
+const rolloutCursorSchema = z
+  .union([
+    z.number().int().nonnegative(),
+    z.object({
+      offset: z.number().int().nonnegative(),
+      identity: z
+        .string()
+        .regex(/^\d+:\d+$/)
+        .optional()
+    })
+  ])
+  .transform((cursor) => (typeof cursor === "number" ? { offset: cursor } : cursor));
+
 const settingsSchema = z.object({
   enhancedStatusEnabled: z.boolean().optional(),
   codexHome: z.string().optional(),
   initialized: z.boolean().optional(),
   threadStates: z.record(z.string(), persistedThreadStateSchema).optional(),
-  rolloutOffsets: z.record(z.string(), z.number().int().nonnegative()).optional()
+  rolloutOffsets: z.record(z.string(), rolloutCursorSchema).optional()
 });
 
 function initialHealth(): HealthSnapshot {
@@ -425,12 +438,18 @@ function normalizeSettings(settings: unknown): GlobalSettings {
       }
     ])
   );
+  const rolloutOffsets = Object.fromEntries(
+    Object.entries(value.rolloutOffsets ?? {}).map(([filePath, cursor]) => [
+      filePath,
+      { offset: cursor.offset, ...(cursor.identity ? { identity: cursor.identity } : {}) }
+    ])
+  );
   return {
     assignmentMode: "recent",
     enhancedStatusEnabled: value.enhancedStatusEnabled ?? DEFAULT_SETTINGS.enhancedStatusEnabled,
     initialized: value.initialized ?? false,
     threadStates,
-    rolloutOffsets: value.rolloutOffsets ?? {},
+    rolloutOffsets,
     ...(value.codexHome?.trim() ? { codexHome: value.codexHome.trim() } : {})
   };
 }

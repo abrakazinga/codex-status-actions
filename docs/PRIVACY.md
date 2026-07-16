@@ -27,7 +27,7 @@ Stream Deck global settings store byte offsets and small state identifiers requi
 
 The property inspector receives only the enhanced-status toggle and optional `CODEX_HOME` override. Persisted task identifiers and rollout paths are not sent to its webview.
 
-The hook socket and helper live under `$CODEX_HOME/codex-status-actions`. The directory is mode `0700`; the socket and `hooks.json` are mode `0600`.
+The hook socket and helper live under `$CODEX_HOME/codex-status-actions`. The directory is mode `0700`; the socket and `hooks.json` are enforced as mode `0600` during installation.
 
 ## Diagnostics
 
