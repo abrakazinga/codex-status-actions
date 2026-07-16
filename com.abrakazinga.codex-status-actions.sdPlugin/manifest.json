@@ -9,9 +9,7 @@
       "Icon": "imgs/actions/status/icon",
       "Tooltip": "Shows one of your most recently updated local Codex tasks.",
       "PropertyInspectorPath": "ui/property-inspector.html",
-      "Controllers": [
-        "Keypad"
-      ],
+      "Controllers": ["Keypad"],
       "States": [
         {
           "Image": "imgs/actions/status/key",
