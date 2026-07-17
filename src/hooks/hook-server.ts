@@ -15,8 +15,7 @@ const envelopeSchema = z
     turnId: z
       .string()
       .regex(/^[A-Za-z0-9_-]{1,128}$/)
-      .optional(),
-    timestamp: z.number().int().positive()
+      .optional()
   })
   .strict();
 
@@ -101,7 +100,7 @@ export class HookServer {
         version: parsed.version,
         event: parsed.event,
         threadId: parsed.threadId,
-        timestamp: parsed.timestamp,
+        timestamp: Date.now(),
         ...(parsed.turnId ? { turnId: parsed.turnId } : {})
       };
       this.onEnvelope(envelope);

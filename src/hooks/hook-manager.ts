@@ -85,8 +85,7 @@ export class HookManager {
 
   async trust(cwd: string): Promise<void> {
     const hooks = await this.listOwned(cwd);
-    if (hooks.length !== OWNED_EVENTS.length)
-      throw new Error("Three installed status hooks were not discovered");
+    if (hooks.length !== OWNED_EVENTS.length) throw new Error("Installed status hooks were not discovered");
     await this.appServer.writeHookStates(
       Object.fromEntries(hooks.map((hook) => [hook.key, { enabled: true, trusted_hash: hook.currentHash }]))
     );
@@ -234,14 +233,13 @@ case "$hook_event:$tool_name" in
   *) exit 0 ;;
 esac
 
-timestamp=$(/bin/date +%s)000
 base=$(CDPATH= cd -- "$(/usr/bin/dirname -- "$0")" && /bin/pwd)
 socket="$base/status.sock"
 
 if [ -n "$turn_id" ]; then
-  body=$(printf '{"version":1,"event":"%s","threadId":"%s","turnId":"%s","timestamp":%s}' "$event" "$session_id" "$turn_id" "$timestamp")
+  body=$(printf '{"version":1,"event":"%s","threadId":"%s","turnId":"%s"}' "$event" "$session_id" "$turn_id")
 else
-  body=$(printf '{"version":1,"event":"%s","threadId":"%s","timestamp":%s}' "$event" "$session_id" "$timestamp")
+  body=$(printf '{"version":1,"event":"%s","threadId":"%s"}' "$event" "$session_id")
 fi
 
 printf '%s' "$body" | /usr/bin/curl --silent --max-time 0.2 --unix-socket "$socket" --header 'Content-Type: application/json' --data-binary @- http://localhost/hook >/dev/null 2>&1 || true

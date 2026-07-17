@@ -73,6 +73,7 @@ describe("Codex hook integration", () => {
       })
     );
     await server.start();
+    const sentAt = Date.now();
     await runHelper(manager.helperPath, {
       session_id: threadId,
       turn_id: "turn-1",
@@ -88,7 +89,7 @@ describe("Codex hook integration", () => {
       threadId,
       turnId: "turn-1"
     });
-    expect(typeof received?.timestamp).toBe("number");
+    expect(received?.timestamp).toBeGreaterThanOrEqual(sentAt);
     expect(JSON.stringify(received)).not.toContain("TOP SECRET");
   });
 
@@ -140,7 +141,6 @@ describe("Codex hook integration", () => {
       version: 1,
       event: "question-opened",
       threadId,
-      timestamp: Date.now(),
       prompt: "must not be accepted"
     });
     expect(status).toBe(400);

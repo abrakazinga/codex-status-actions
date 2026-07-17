@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { initialRuntimeState, reduceRuntimeState, visualState } from "../src/status/reducer";
+import {
+  initialRuntimeState,
+  persistRuntimeState,
+  reduceRuntimeState,
+  visualState
+} from "../src/status/reducer";
 
 const threadId = "019f6b6d-644d-7701-8858-9da6837aaaaa";
 
@@ -22,7 +27,7 @@ describe("status reducer", () => {
     state = reduceRuntimeState(state, { type: "turn-completed", threadId, turnId: "turn-1", timestamp: 4 });
     expect(visualState(state)).toBe("unread");
 
-    state = reduceRuntimeState(state, { type: "acknowledged", threadId, timestamp: 5 });
+    state = reduceRuntimeState(state, { type: "acknowledged", threadId });
     expect(visualState(state)).toBe("idle");
   });
 
@@ -36,7 +41,7 @@ describe("status reducer", () => {
     expect(visualState(state)).toBe("error");
     state = reduceRuntimeState(state, { type: "activity", threadId, timestamp: 3 });
     expect(visualState(state)).toBe("error");
-    state = reduceRuntimeState(state, { type: "acknowledged", threadId, timestamp: 3 });
+    state = reduceRuntimeState(state, { type: "acknowledged", threadId });
     expect(visualState(state)).toBe("error");
     state = reduceRuntimeState(state, { type: "turn-started", threadId, turnId: "turn-2", timestamp: 4 });
     expect(visualState(state)).toBe("working");
@@ -52,6 +57,45 @@ describe("status reducer", () => {
     state = reduceRuntimeState(state, { type: "turn-started", threadId, turnId: "turn-2", timestamp: 2 });
     expect(state.lastAcknowledgedCompletionId).toBe("turn-1");
     expect(visualState(state)).toBe("working");
+  });
+
+  it("does not let acknowledgement suppress a delayed task event", () => {
+    let state = reduceRuntimeState(initialRuntimeState(), {
+      type: "turn-started",
+      threadId,
+      turnId: "turn-1",
+      timestamp: 10
+    });
+    state = reduceRuntimeState(state, { type: "acknowledged", threadId });
+    expect(state.changedAt).toBe(10);
+
+    state = reduceRuntimeState(state, {
+      type: "turn-completed",
+      threadId,
+      turnId: "turn-1",
+      timestamp: 11
+    });
+    expect(visualState(state)).toBe("unread");
+  });
+
+  it("persists an open planning question across restart", () => {
+    const waiting = reduceRuntimeState(initialRuntimeState(), {
+      type: "input-requested",
+      threadId,
+      turnId: "turn-1",
+      callId: "call-question",
+      timestamp: 1
+    });
+    const restored = initialRuntimeState(persistRuntimeState(waiting));
+    expect(visualState(restored)).toBe("needs-user");
+
+    const resumed = reduceRuntimeState(restored, {
+      type: "input-resolved",
+      threadId,
+      callId: "call-question",
+      timestamp: 2
+    });
+    expect(visualState(resumed)).toBe("working");
   });
 
   it("recovers active work from activity and ignores stale events", () => {

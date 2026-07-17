@@ -26,23 +26,22 @@ The separate process cannot observe the private in-memory status of tasks owned 
 
 `RolloutWatcher` recursively watches JSONL files below `$CODEX_HOME/sessions`. It streams bounded chunks, commits offsets only through complete lines, detects truncation and file replacement, skips oversized records, and deduplicates replayed events.
 
-Persisted task start/completion/error records feed a deterministic reducer. On first installation, historical completions are acknowledged so existing tasks do not all turn green. Subsequent completions remain unread across Stream Deck restarts.
+Persisted task start/completion/error records and sanitized `request_user_input` lifecycle records feed a deterministic reducer. Only the tool name, call ID, turn ID, and timestamp are inspected; question content is discarded. On first installation, historical completions are acknowledged so existing tasks do not all turn green. Subsequent completions and open-question state survive Stream Deck restarts.
 
 ### Enhanced status hooks
 
 `HookManager` adds three command hooks to the user's `$CODEX_HOME/hooks.json` without replacing unrelated entries:
 
 - `PermissionRequest` for approval waits
-- `PreToolUse` for `request_user_input`
-- `PostToolUse` for the matching question completion
+- `PreToolUse` and `PostToolUse` declarations retained as compatibility signals for `request_user_input`
 
-The helper reduces hook input before forwarding it. `HookServer` accepts only a small versioned JSON envelope over a Unix-domain socket with a 4 KiB request limit. Definitions remain inert until the user explicitly trusts their current hashes through the property inspector.
+Planning-question status is authoritative from rollout files because current Codex builds do not dispatch tool hooks for this built-in interaction. The helper reduces any compatible hook input before forwarding it. `HookServer` accepts only a small versioned JSON envelope over a Unix-domain socket with a 4 KiB request limit and timestamps it on receipt. Definitions remain inert until the user explicitly trusts their current hashes through the property inspector.
 
 ### Assignment and rendering
 
 Every visible device is ranked independently. Visible key coordinates are sorted row-major and paired with a persisted top-level task queue. The first catalog load seeds that queue by recency with a deterministic thread-ID tie breaker. Only a new turn promotes an existing task to the front; ordinary activity, status transitions, completions, and catalog metadata refreshes preserve the order. New catalog entries append to the queue, while archived or removed tasks drop out.
 
-Each key receives a minimal 144×144 SVG data URI containing one centered circle from the fixed status palette on a transparent surface. There are no labels or rank numbers. The plugin caches the last image per context to avoid redundant Stream Deck updates.
+Each key receives a minimal 144×144 SVG data URI containing a centered state glyph from the fixed status palette on a transparent surface. Working tiles cycle one rounded segment through 30 eased frames over three seconds; it expands across 94% of the circumference, then contracts from its trailing edge while completing the loop. The timer runs only while a visible task is working. There are no labels or rank numbers. The plugin caches the last image per context to avoid redundant Stream Deck updates.
 
 ### Navigation
 
@@ -58,6 +57,7 @@ Stream Deck global settings contain:
 - rollout byte offsets
 - stable task order
 - completion and acknowledgement IDs
+- open-question state
 - terminal error markers
 
 No task transcript, prompt, command, question, or tool payload is persisted by the plugin.

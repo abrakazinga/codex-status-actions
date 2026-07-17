@@ -52,6 +52,7 @@ export interface HealthSnapshot extends JsonObject {
 export interface PersistedThreadState extends JsonObject {
   lastCompletionId?: string;
   lastAcknowledgedCompletionId?: string;
+  needsUser?: boolean;
   error?: boolean;
   changedAt?: number;
 }

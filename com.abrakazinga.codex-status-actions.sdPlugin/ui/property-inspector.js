@@ -51,8 +51,8 @@ function renderSnapshot(snapshot) {
   const trusted = snapshot.health.hooks === "trusted";
   document.querySelector("#trust-hooks").disabled = trusted || !snapshot.settings.enhancedStatusEnabled;
   document.querySelector("#trust-hooks").textContent = trusted
-    ? "3 status hooks trusted"
-    : "Trust 3 local status hooks";
+    ? "Status hooks trusted"
+    : "Trust local status hooks";
   document.querySelector("#reinstall-hooks").disabled = !snapshot.settings.enhancedStatusEnabled;
 }
 
