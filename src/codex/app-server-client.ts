@@ -37,7 +37,26 @@ const hooksListSchema = z.object({
   )
 });
 
+const rateLimitWindowSchema = z.object({
+  usedPercent: z.number(),
+  windowDurationMins: z.number().positive(),
+  resetsAt: z.number()
+});
+
+const rateLimitBucketSchema = z.object({
+  primary: z.unknown().nullish(),
+  secondary: z.unknown().nullish()
+});
+
+const rateLimitsResultSchema = z.object({
+  rateLimits: rateLimitBucketSchema,
+  rateLimitsByLimitId: z.record(z.string(), rateLimitBucketSchema).nullish()
+});
+
 export type HookMetadata = z.infer<typeof hookMetadataSchema>;
+type RateLimitWindow = z.infer<typeof rateLimitWindowSchema>;
+
+export type RateLimitsSnapshot = readonly RateLimitWindow[];
 
 interface PendingRequest {
   resolve: (value: unknown) => void;
@@ -52,7 +71,10 @@ export class AppServerClient extends EventEmitter {
   private starting: Promise<void> | undefined;
   private stopped = false;
 
-  constructor(private readonly binaryOverride?: string) {
+  constructor(
+    private readonly binaryOverride?: string,
+    private readonly codexHome?: string
+  ) {
     super();
   }
 
@@ -146,12 +168,32 @@ export class AppServerClient extends EventEmitter {
     });
   }
 
+  async readRateLimits(): Promise<RateLimitsSnapshot> {
+    await this.start();
+    const result = rateLimitsResultSchema.parse(await this.request("account/rateLimits/read", {}));
+    const buckets = [result.rateLimits, ...Object.values(result.rateLimitsByLimitId ?? {})];
+    const seen = new Set<string>();
+    return buckets
+      .flatMap((bucket) =>
+        [bucket.primary, bucket.secondary].flatMap((window) => {
+          const parsed = rateLimitWindowSchema.safeParse(window);
+          return parsed.success ? [parsed.data] : [];
+        })
+      )
+      .filter((window) => {
+        const key = `${String(window.windowDurationMins)}:${String(window.resetsAt)}:${String(window.usedPercent)}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+  }
+
   private async startProcess(): Promise<void> {
     const binary = await findCodexBinary(this.binaryOverride);
     if (!binary) throw new Error("Codex binary was not found");
 
     const child = spawn(binary, ["app-server"], {
-      env: process.env,
+      env: { ...process.env, ...(this.codexHome ? { CODEX_HOME: this.codexHome } : {}) },
       stdio: ["pipe", "pipe", "pipe"]
     });
     this.child = child;
@@ -226,14 +268,22 @@ export class AppServerClient extends EventEmitter {
   }
 
   private handleLine(line: string): void {
-    let message: { id?: unknown; result?: unknown; error?: { message?: string } };
+    let message: {
+      id?: unknown;
+      method?: unknown;
+      result?: unknown;
+      error?: { message?: string };
+    };
     try {
       message = JSON.parse(line) as typeof message;
     } catch {
       this.emit("diagnostic", "Codex app-server emitted malformed JSON");
       return;
     }
-    if (typeof message.id !== "number") return;
+    if (typeof message.id !== "number") {
+      if (message.method === "account/rateLimits/updated") this.emit("rateLimitsUpdated");
+      return;
+    }
     const pending = this.pending.get(message.id);
     if (!pending) return;
     clearTimeout(pending.timeout);

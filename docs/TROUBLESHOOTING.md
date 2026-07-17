@@ -8,6 +8,15 @@
 - Changing `CODEX_HOME` removes this plugin's unchanged hook declarations and helper from the previous location before initializing the new one.
 - Restart the plugin from Stream Deck or run `pnpm exec streamdeck restart com.abrakazinga.codex-status-actions` in a development checkout.
 
+## Usage shows UNAVAILABLE
+
+- Open the Usage tile's **Debug** section and check **Usage Source** and **Windows**.
+- If Codex successfully omits the 5-hour window, the tile shows `N/A`; this is not a fetch error.
+- Click **Refresh Now**. A temporary failure keeps the last successful values and marks them `STALE`.
+- Confirm Codex is signed in. Authentication is handled by Codex; this plugin never asks for or reads a token.
+- Some accounts currently return only the weekly window. In Double mode the available row continues to work; a Single 5-hour tile shows `N/A`.
+- If you use a custom Codex home, set the shared path under **Advanced**. This restarts the shared app-server and status services.
+
 ## Orange never appears
 
 - Planning questions are detected automatically from rollout events and do not require hooks.

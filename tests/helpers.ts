@@ -5,3 +5,14 @@ export async function waitFor(predicate: () => boolean, message: string): Promis
     await new Promise((resolve) => setTimeout(resolve, 20));
   }
 }
+
+export function deferred<T>(): {
+  promise: Promise<T>;
+  resolve: (value: T) => void;
+} {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((next) => {
+    resolve = next;
+  });
+  return { promise, resolve };
+}

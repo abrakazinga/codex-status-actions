@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/abrakazinga/codex-status-actions/actions/workflows/ci.yml/badge.svg)](https://github.com/abrakazinga/codex-status-actions/actions/workflows/ci.yml)
 
-An unofficial, open-source Stream Deck integration for monitoring local OpenAI Codex tasks on macOS.
+An unofficial, open-source Stream Deck integration for monitoring local OpenAI Codex tasks and usage on macOS.
 
 The `Codex Status` action can be placed on one or many keys. Tiles start in recent-task order, then remain stable until a task begins a new turn and moves to the first position.
 
@@ -15,6 +15,8 @@ The `Codex Status` action can be placed on one or many keys. Tiles start in rece
 | Red        | The task or integration reported an error                  |
 
 Each tile is a quiet signal glyph on a transparent surface: a hollow idle circle, filled unread circle, smoothly expanding working segment, approval triangle, or error circle with an X. There are no labels or rank numbers.
+
+The `Codex Usage` action shows remaining, used, or linear-pace percentages for the 5-hour and weekly Codex windows. It supports one large value or two stacked values, optional reset countdowns, and transparent error/loading states. Pace is green and labeled **Behind** when usage is below the linear forecast, orange and labeled **Ahead** when usage is above it, and neutral at zero.
 
 ## Requirements
 
@@ -31,6 +33,8 @@ Each tile is a quiet signal glyph on a transparent surface: a hollow idle circle
 5. Restart Codex once. Hook changes are never trusted silently.
 
 Planning questions are detected from local rollout events. The plugin works without trusted hooks, but approval waits may remain blue instead of orange.
+
+Add **Codex Usage** separately wherever you want quota visibility. It reads the official Codex app-server rate-limit snapshot and does not require status hooks.
 
 ## How assignment works
 
@@ -58,6 +62,8 @@ Status is assembled locally from:
 - live JSONL rollout files under `$CODEX_HOME/sessions` for turn and planning-question state
 - three optional Codex lifecycle hooks for approval detection and compatibility
 
+Usage is read through the official `account/rateLimits/read` app-server method. The plugin does not open `auth.json`, retain authentication tokens, or call a private usage endpoint.
+
 The hook helper receives Codex's hook input, extracts only the task ID, turn ID, and event name in memory, and forwards that reduced object over a permission-restricted Unix socket. It never forwards or logs prompts, questions, command text, tool input, transcripts, or file paths. When Stream Deck is unavailable, the helper exits successfully so it cannot block Codex.
 
 See [Privacy](docs/PRIVACY.md), [Architecture](docs/ARCHITECTURE.md), and [Security](SECURITY.md) for details.
@@ -84,7 +90,8 @@ Package a distributable artifact with `pnpm run pack`.
 ## Current limitations
 
 - macOS and one local Codex installation only
-- The stable turn-driven queue is the only assignment mode in v0.1
+- The stable turn-driven queue is the only status assignment mode
+- Some Codex accounts expose only one supported usage window; Double mode marks only the missing row unavailable
 - Green is a plugin-local unread marker, not Codex Desktop's private read state
 - Approval orange clears on the next observable task activity because Codex does not expose a dedicated approval-resolved lifecycle hook
 - The local task URL is an interoperability surface and may require adaptation after a Codex update

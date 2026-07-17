@@ -1,17 +1,18 @@
 import { WORKING_ANIMATION_FRAMES } from "./constants";
+import { THEME } from "./theme";
 import type { ThreadVisualState } from "./types";
 
 const STATUS_COLORS: Record<ThreadVisualState, string> = {
-  idle: "#F1F1ED",
-  unread: "#8FEA98",
-  working: "#8DCEF5",
-  "needs-user": "#FFCBB6",
-  error: "#FF6B73"
+  idle: THEME.neutral,
+  unread: THEME.green,
+  working: THEME.blue,
+  "needs-user": THEME.orange,
+  error: THEME.red
 };
 
 const CENTER = "72";
 const RADIUS = "34";
-const GLYPH_COLOR = "#111315";
+const GLYPH_COLOR = THEME.glyph;
 const WORKING_MIN_ARC = 6;
 const WORKING_MAX_ARC = 94;
 

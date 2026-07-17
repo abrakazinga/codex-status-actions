@@ -1,10 +1,12 @@
 let socket;
 let actionInfo;
+let propertyInspectorContext;
 let toastTimer;
 
 function connectElgatoStreamDeckSocket(port, uuid, registerEvent, info, rawActionInfo) {
   void info;
   actionInfo = JSON.parse(rawActionInfo);
+  propertyInspectorContext = uuid;
   socket = new WebSocket(`ws://127.0.0.1:${port}`);
   socket.addEventListener("open", () => {
     socket.send(JSON.stringify({ event: registerEvent, uuid }));
@@ -24,7 +26,7 @@ function send(payload) {
     JSON.stringify({
       action: actionInfo.action,
       event: "sendToPlugin",
-      context: actionInfo.context,
+      context: propertyInspectorContext,
       payload
     })
   );
@@ -37,6 +39,7 @@ function receive(payload) {
 }
 
 function renderSnapshot(snapshot) {
+  applyTheme(snapshot.theme);
   document.querySelector("#enhanced-status").value = snapshot.settings.enhancedStatusEnabled
     ? "enabled"
     : "disabled";
@@ -54,6 +57,17 @@ function renderSnapshot(snapshot) {
     ? "Status hooks trusted"
     : "Trust local status hooks";
   document.querySelector("#reinstall-hooks").disabled = !snapshot.settings.enhancedStatusEnabled;
+}
+
+function applyTheme(theme) {
+  if (!theme) return;
+  const root = document.documentElement.style;
+  root.setProperty("--neutral", theme.neutral);
+  root.setProperty("--green", theme.green);
+  root.setProperty("--blue", theme.blue);
+  root.setProperty("--orange", theme.orange);
+  root.setProperty("--red", theme.red);
+  root.setProperty("--on-accent", theme.glyph);
 }
 
 function setHealth(id, value) {

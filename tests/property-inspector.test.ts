@@ -36,10 +36,29 @@ describe("property inspector", () => {
       )
     ) as { Actions: Array<{ UserTitleEnabled?: boolean }> };
 
-    expect(manifest.Actions[0]?.UserTitleEnabled).toBe(false);
+    expect(manifest.Actions).toHaveLength(2);
+    expect(manifest.Actions.every((action) => action.UserTitleEnabled === false)).toBe(true);
   });
 
-  it("sends commands with the registered action context", async () => {
+  it("provides compact Usage controls and conditional Pace copy", async () => {
+    const html = await readFile(
+      new URL(
+        "../com.abrakazinga.codex-status-actions.sdPlugin/ui/usage-property-inspector.html",
+        import.meta.url
+      ),
+      "utf8"
+    );
+    const text = html.replace(/\s+/g, " ");
+    expect(html).toContain('<select id="usage-mode"');
+    expect(html).toContain('<select id="usage-metric"');
+    expect(html).toContain('<select id="usage-window"');
+    expect(html).toContain('id="show-reset-time" type="checkbox"');
+    expect(html).toContain("<summary>Advanced</summary>");
+    expect(html).toContain("<summary>Debug</summary>");
+    expect(text).toContain("does not read or log prompts, messages, or authentication tokens");
+  });
+
+  it("sends commands with the property-inspector context", async () => {
     const source = await readFile(
       new URL("../com.abrakazinga.codex-status-actions.sdPlugin/ui/property-inspector.js", import.meta.url),
       "utf8"
@@ -78,7 +97,7 @@ describe("property inspector", () => {
       "property-inspector-id",
       "registerPropertyInspector",
       "{}",
-      '{"action":"status","context":"correct-context"}'
+      '{"action":"status","context":"wrong-context"}'
     );
     sockets[0]?.open();
 
@@ -89,12 +108,99 @@ describe("property inspector", () => {
       JSON.stringify({
         action: "status",
         event: "sendToPlugin",
-        context: "correct-context",
+        context: "property-inspector-id",
         payload: { type: "refresh" }
       })
     );
   });
+
+  it("persists Usage settings with the property-inspector context", async () => {
+    const source = await readFile(
+      new URL(
+        "../com.abrakazinga.codex-status-actions.sdPlugin/ui/usage-property-inspector.js",
+        import.meta.url
+      ),
+      "utf8"
+    );
+    const sockets: FakeWebSocket[] = [];
+    const elements = new Map<string, FakeElement>();
+    const element = (selector: string): FakeElement => {
+      const existing = elements.get(selector);
+      if (existing) return existing;
+      const created = new FakeElement();
+      elements.set(selector, created);
+      return created;
+    };
+    const sandbox = {
+      WebSocket: class extends FakeWebSocket {
+        constructor() {
+          super();
+          sockets.push(this);
+        }
+      },
+      document: {
+        documentElement: { style: { setProperty: () => undefined } },
+        querySelector: element
+      },
+      navigator: {},
+      setTimeout,
+      clearTimeout
+    };
+    vm.runInNewContext(source, sandbox);
+
+    const connect = (
+      sandbox as typeof sandbox & {
+        connectElgatoStreamDeckSocket: (
+          port: number,
+          context: string,
+          registerEvent: string,
+          info: string,
+          actionInfo: string
+        ) => void;
+      }
+    ).connectElgatoStreamDeckSocket;
+    connect(
+      1234,
+      "property-inspector-id",
+      "registerPropertyInspector",
+      "{}",
+      '{"action":"usage","context":"wrong-context","payload":{"settings":{}}}'
+    );
+    sockets[0]?.open();
+    element("#usage-window").dispatch("change", { target: { value: "week" } });
+
+    expect(sockets[0]?.messages).toContain(
+      JSON.stringify({
+        action: "usage",
+        event: "setSettings",
+        context: "property-inspector-id",
+        payload: {
+          mode: "single",
+          metric: "remaining",
+          window: "week",
+          showResetTime: false,
+          refreshSeconds: 300
+        }
+      })
+    );
+  });
 });
+
+class FakeElement {
+  value = "";
+  checked = false;
+  readonly classList = { add: () => undefined, toggle: () => undefined };
+  readonly style = { background: "" };
+  private readonly listeners = new Map<string, (event: unknown) => void>();
+
+  addEventListener(event: string, listener: (event: unknown) => void): void {
+    this.listeners.set(event, listener);
+  }
+
+  dispatch(event: string, payload: unknown): void {
+    this.listeners.get(event)?.(payload);
+  }
+}
 
 class FakeWebSocket {
   static readonly OPEN = 1;

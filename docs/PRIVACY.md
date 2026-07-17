@@ -7,6 +7,7 @@ Codex: Status & Actions runs locally and does not provide its own network servic
 - Task IDs, timestamps, ephemeral state, and hierarchy from local Codex `thread/list`
 - Event type, timestamp, thread ID, turn ID, tool name, and transient call ID from local rollout JSONL files
 - Hook event name, thread ID, and turn ID from local Codex hook invocations
+- Used percentage, window duration, and reset timestamp from local Codex `account/rateLimits/read`
 
 Other `thread/list` fields are discarded during validation and are not retained by the plugin.
 
@@ -25,12 +26,16 @@ The hook process receives the standard Codex hook object, which may include sens
 
 Stream Deck global settings store byte offsets, open-question state, and small state identifiers required for restart recovery. Call IDs are not persisted. The plugin does not copy rollout files or maintain a transcript database.
 
-The property inspector receives only the enhanced-status toggle and optional `CODEX_HOME` override. Persisted task identifiers and rollout paths are not sent to its webview.
+The Status property inspector receives only the enhanced-status toggle and optional `CODEX_HOME` override. The Usage inspector additionally receives its own presentation settings and source health. Persisted task identifiers, rollout paths, and usage percentages are not sent to either webview.
+
+Usage percentages and reset timestamps remain in memory and are not persisted. Usage key settings contain only presentation choices and refresh interval. Codex performs authentication for app-server requests; the plugin does not read or copy token contents from `auth.json`.
 
 The hook socket and helper live under `$CODEX_HOME/codex-status-actions`. The directory is mode `0700`; the socket and `hooks.json` are enforced as mode `0600` during installation.
 
 ## Diagnostics
 
 “Copy Safe Diagnostics” includes plugin/platform versions, whether a custom Codex home is configured, connection states, task count, hook count, and whether enhanced status is enabled. It excludes filesystem paths, task IDs, rollout paths, transcripts, and event content.
+
+Usage diagnostics include only source state, whether a successful refresh has occurred, available window names, and visible tile count. They exclude usage percentages, reset timestamps, account identifiers, and errors' underlying payloads.
 
 Raw app-server stderr is drained but never copied into plugin logs; only a content-free diagnostic marker is emitted.

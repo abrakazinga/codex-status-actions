@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Codex Usage Settings</title>
+    <link rel="stylesheet" href="property-inspector.css" />
+  </head>
+  <body>
+    <main class="panel">
+      <aside class="disclaimer">
+        This unofficial integration reads Codex usage limits through the local Codex app-server. It does not
+        read or log prompts, messages, or authentication tokens.
+      </aside>
+
+      <section class="section-block">
+        <h2>General</h2>
+        <label class="field-row" for="usage-mode">
+          <span>Mode</span>
+          <select id="usage-mode">
+            <option value="single">Single value</option>
+            <option value="double">Double value</option>
+          </select>
+        </label>
+        <label class="field-row" for="usage-metric">
+          <span>Value</span>
+          <select id="usage-metric">
+            <option value="remaining">Remaining</option>
+            <option value="used">Used</option>
+            <option value="pace">Pace</option>
+          </select>
+        </label>
+        <label id="window-row" class="field-row" for="usage-window">
+          <span>Timeframe</span>
+          <select id="usage-window">
+            <option value="five-hour">5 hours</option>
+            <option value="week">Week</option>
+          </select>
+        </label>
+        <label id="reset-row" class="field-row" for="show-reset-time">
+          <span>Show reset time</span>
+          <span class="checkbox-control"><input id="show-reset-time" type="checkbox" /></span>
+        </label>
+        <p id="pace-description" class="section-description hidden">
+          Compares current usage with a linear forecast. Green is behind pace; orange is ahead.
+        </p>
+      </section>
+
+      <details class="collapsible">
+        <summary>Advanced</summary>
+        <div class="collapsible-content">
+          <label class="field-row" for="refresh-seconds">
+            <span>Refresh interval</span>
+            <select id="refresh-seconds">
+              <option value="60">60 seconds</option>
+              <option value="300">300 seconds</option>
+              <option value="900">900 seconds</option>
+              <option value="1800">1,800 seconds</option>
+            </select>
+          </label>
+          <div class="field-row">
+            <label for="codex-home">Codex home</label>
+            <div class="path-input">
+              <input id="codex-home" type="text" spellcheck="false" placeholder="~/.codex" />
+              <button id="apply-home" type="button" aria-label="Apply Codex home">Set</button>
+              <button id="reset-home" type="button">Default</button>
+            </div>
+          </div>
+          <div class="advanced-actions">
+            <button id="refresh-now" class="button secondary full" type="button">Refresh now</button>
+          </div>
+        </div>
+      </details>
+
+      <details class="collapsible debug">
+        <summary>Debug</summary>
+        <div class="collapsible-content">
+          <div class="health" aria-label="Usage status">
+            <div class="health-row"><span>Usage source</span><output id="usage-status">LOADING</output></div>
+            <div class="health-row"><span>Last refresh</span><output id="usage-refreshed">NEVER</output></div>
+            <div class="health-row"><span>Windows</span><output id="usage-windows">NONE</output></div>
+          </div>
+          <p id="usage-message" class="usage-health-message hidden"></p>
+          <div class="debug-footer">
+            <button id="copy-diagnostics" class="text-button" type="button">Copy safe diagnostics</button>
+            <span id="version">v0.2.0</span>
+          </div>
+        </div>
+      </details>
+      <div id="toast" role="status" aria-live="polite"></div>
+    </main>
+    <script src="usage-property-inspector.js"></script>
+  </body>
+</html>

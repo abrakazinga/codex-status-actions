@@ -3,7 +3,6 @@
   --background: #1d1e22;
   --surface: #17191e;
   --foreground: #f3f4f6;
-  --on-accent: #111315;
   --muted: #9ba3af;
   --heading: #aeb9ca;
   --line: #3b414c;
@@ -11,11 +10,6 @@
   --row-line: rgba(255, 255, 255, 0.07);
   --notice-text: #d8dbe0;
   --toast-background: #f1f1ed;
-  --toast-foreground: #111315;
-  --blue: #8dcef5;
-  --green: #8fea98;
-  --orange: #ffcbb6;
-  --red: #ff6b73;
   --font-ui: "SF Pro Text", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
 }
 
@@ -144,6 +138,10 @@ h2 {
   color: var(--foreground);
 }
 
+.button.full {
+  width: 100%;
+}
+
 .button:hover {
   filter: brightness(1.08);
 }
@@ -171,7 +169,33 @@ h2 {
 }
 
 .hidden {
-  display: none;
+  display: none !important;
+}
+
+.checkbox-control {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.checkbox-control input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--blue);
+}
+
+.advanced-actions {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.usage-health-message {
+  margin: 8px 0 0;
+  color: var(--red);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.35;
 }
 
 .collapsible {
@@ -320,7 +344,7 @@ h2 {
   padding: 9px;
   border-radius: 6px;
   background: var(--toast-background);
-  color: var(--toast-foreground);
+  color: var(--on-accent);
   font-weight: 700;
   text-align: center;
   transform: translateY(70px);

@@ -1,6 +1,6 @@
 {
   "Name": "Codex: Status & Actions",
-  "Version": "0.1.0.0",
+  "Version": "0.2.0.0",
   "Author": "abrakazinga",
   "Actions": [
     {
@@ -14,6 +14,22 @@
       "States": [
         {
           "Image": "imgs/actions/status/key",
+          "TitleAlignment": "middle",
+          "ShowTitle": false
+        }
+      ]
+    },
+    {
+      "Name": "Codex Usage",
+      "UUID": "com.abrakazinga.codex-status-actions.usage",
+      "Icon": "imgs/actions/usage/icon",
+      "Tooltip": "Shows remaining, used, or pace for Codex usage windows.",
+      "PropertyInspectorPath": "ui/usage-property-inspector.html",
+      "UserTitleEnabled": false,
+      "Controllers": ["Keypad"],
+      "States": [
+        {
+          "Image": "imgs/actions/usage/key",
           "TitleAlignment": "middle",
           "ShowTitle": false
         }

@@ -11,7 +11,9 @@ const watchedPluginFiles = [
   "manifest.json",
   "ui/property-inspector.css",
   "ui/property-inspector.html",
-  "ui/property-inspector.js"
+  "ui/property-inspector.js",
+  "ui/usage-property-inspector.html",
+  "ui/usage-property-inspector.js"
 ];
 
 /** @type {import("rollup").RollupOptions} */

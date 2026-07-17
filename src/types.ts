@@ -1,5 +1,7 @@
 import type { JsonObject } from "@elgato/utils";
 
+import type { ThemePalette } from "./theme";
+
 export type ThreadVisualState = "idle" | "unread" | "working" | "needs-user" | "error";
 
 export type TaskNavigationMode = "background" | "foreground";
@@ -80,6 +82,7 @@ export interface PropertyInspectorSnapshot extends JsonObject {
   type: "snapshot";
   settings: PropertyInspectorSettings;
   health: HealthSnapshot;
+  theme: ThemePalette;
   version: string;
 }
 

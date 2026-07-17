@@ -1,12 +1,12 @@
 import path from "node:path";
 
-import { z } from "zod";
-
-import { AppServerClient } from "../codex/app-server-client";
+import { CodexRuntime } from "../codex/runtime";
 import { RolloutWatcher, type ParsedRolloutEvent } from "../codex/rollout-watcher";
-import { CATALOG_REFRESH_MS, DEFAULT_ENHANCED_STATUS_ENABLED, PLUGIN_VERSION } from "../constants";
+import { CATALOG_REFRESH_MS, PLUGIN_VERSION } from "../constants";
 import { HookManager } from "../hooks/hook-manager";
 import { HookServer } from "../hooks/hook-server";
+import { GlobalSettingsStore } from "../settings";
+import { THEME } from "../theme";
 import { promoteThreadOnNewTurn, reconcileThreadOrder } from "../thread-order";
 import type {
   GlobalSettings,
@@ -26,38 +26,6 @@ import {
   type StatusEvent
 } from "./reducer";
 
-type PersistSettings = (settings: GlobalSettings) => Promise<void>;
-
-const persistedThreadStateSchema = z.object({
-  lastCompletionId: z.string().optional(),
-  lastAcknowledgedCompletionId: z.string().optional(),
-  needsUser: z.boolean().optional(),
-  error: z.boolean().optional(),
-  changedAt: z.number().nonnegative().optional()
-});
-
-const rolloutCursorSchema = z
-  .union([
-    z.number().int().nonnegative(),
-    z.object({
-      offset: z.number().int().nonnegative(),
-      identity: z
-        .string()
-        .regex(/^\d+:\d+$/)
-        .optional()
-    })
-  ])
-  .transform((cursor) => (typeof cursor === "number" ? { offset: cursor } : cursor));
-
-const settingsSchema = z.object({
-  enhancedStatusEnabled: z.boolean().optional(),
-  codexHome: z.string().optional(),
-  initialized: z.boolean().optional(),
-  threadOrder: z.array(z.string()).optional(),
-  threadStates: z.record(z.string(), persistedThreadStateSchema).optional(),
-  rolloutOffsets: z.record(z.string(), rolloutCursorSchema).optional()
-});
-
 function initialHealth(): HealthSnapshot {
   return {
     codexBinary: "checking",
@@ -70,12 +38,10 @@ function initialHealth(): HealthSnapshot {
 }
 
 export class StatusCoordinator {
-  private settings: GlobalSettings;
   private health = initialHealth();
   private readonly threads = new Map<string, ThreadRecord>();
   private readonly runtime = new Map<string, ThreadRuntimeState>();
   private readonly listeners = new Set<() => void>();
-  private appServer: AppServerClient | undefined;
   private rolloutWatcher: RolloutWatcher | undefined;
   private hookManager: HookManager | undefined;
   private hookServer: HookServer | undefined;
@@ -85,11 +51,23 @@ export class StatusCoordinator {
   private started = false;
 
   constructor(
-    initialSettings: unknown,
-    private readonly persistSettings: PersistSettings,
+    private readonly settingsStore: GlobalSettingsStore,
+    private readonly appServer: CodexRuntime,
     private readonly log: (message: string) => void
   ) {
-    this.settings = normalizeSettings(initialSettings);
+    this.appServer.on("connected", () => this.updateHealth({ catalog: "connected" }));
+    this.appServer.on("disconnected", (error: Error) => {
+      this.updateHealth({ catalog: "disconnected", message: error.message });
+    });
+    this.appServer.on("diagnostic", (message: string) => this.log(`app-server: ${message}`));
+  }
+
+  private get settings(): GlobalSettings {
+    return this.settingsStore.current;
+  }
+
+  private set settings(settings: GlobalSettings) {
+    this.settingsStore.update(() => settings);
   }
 
   get codexHome(): string {
@@ -116,11 +94,10 @@ export class StatusCoordinator {
     if (this.persistTimer) clearTimeout(this.persistTimer);
     this.refreshTimer = undefined;
     this.persistTimer = undefined;
-    await Promise.allSettled([this.rolloutWatcher?.stop(), this.hookServer?.stop(), this.appServer?.stop()]);
+    await Promise.allSettled([this.rolloutWatcher?.stop(), this.hookServer?.stop()]);
     this.rolloutWatcher = undefined;
     this.hookServer = undefined;
     this.hookManager = undefined;
-    this.appServer = undefined;
     await this.persistNow();
   }
 
@@ -156,6 +133,7 @@ export class StatusCoordinator {
         enhancedStatusEnabled: this.settings.enhancedStatusEnabled,
         ...(this.settings.codexHome ? { codexHome: this.settings.codexHome } : {})
       },
+      theme: THEME,
       health: this.health,
       version: PLUGIN_VERSION
     };
@@ -258,6 +236,7 @@ export class StatusCoordinator {
     };
     this.health = initialHealth();
     await this.persistNow();
+    await this.appServer.reconfigure();
     if (wasStarted) {
       this.started = true;
       await this.startServices();
@@ -276,12 +255,6 @@ export class StatusCoordinator {
       this.updateHealth({ codexBinary: "available", catalog: "connecting", navigation: "available" });
     }
 
-    this.appServer = new AppServerClient(binary);
-    this.appServer.on("connected", () => this.updateHealth({ catalog: "connected" }));
-    this.appServer.on("disconnected", (error: Error) => {
-      this.updateHealth({ catalog: "disconnected", message: error.message });
-    });
-    this.appServer.on("diagnostic", (message: string) => this.log(`app-server: ${message}`));
     this.hookManager = new HookManager(this.codexHome, this.appServer);
     this.hookServer = new HookServer(this.codexHome, (envelope) => this.handleHook(envelope));
 
@@ -337,7 +310,6 @@ export class StatusCoordinator {
   }
 
   private async refreshCatalog(): Promise<void> {
-    if (!this.appServer) return;
     try {
       const records = await this.appServer.listThreads(200);
       const nextIds = new Set<string>();
@@ -401,9 +373,8 @@ export class StatusCoordinator {
   private async refreshHookStatus(retryAfterRestart = false): Promise<void> {
     if (!this.hookManager) return;
     let result = await this.hookManager.status(process.cwd());
-    if (retryAfterRestart && result.status === "missing" && this.appServer) {
-      await this.appServer.stop();
-      await this.appServer.start();
+    if (retryAfterRestart && result.status === "missing") {
+      await this.appServer.restart();
       result = await this.hookManager.status(process.cwd());
     }
     this.hookCount = result.count;
@@ -440,43 +411,10 @@ export class StatusCoordinator {
       [...this.runtime].map(([threadId, runtime]) => [threadId, persistRuntimeState(runtime)])
     );
     this.settings = { ...this.settings, threadStates };
-    await this.persistSettings(this.settings);
+    await this.settingsStore.persist();
   }
 }
 
 function sameOrder(left: readonly string[], right: readonly string[]): boolean {
   return left.length === right.length && left.every((id, index) => id === right[index]);
-}
-
-function normalizeSettings(settings: unknown): GlobalSettings {
-  const result = settingsSchema.safeParse(settings);
-  const value = result.success ? result.data : {};
-  const threadStates = Object.fromEntries(
-    Object.entries(value.threadStates ?? {}).map(([threadId, state]) => [
-      threadId,
-      {
-        ...(state.lastCompletionId ? { lastCompletionId: state.lastCompletionId } : {}),
-        ...(state.lastAcknowledgedCompletionId
-          ? { lastAcknowledgedCompletionId: state.lastAcknowledgedCompletionId }
-          : {}),
-        ...(state.needsUser === undefined ? {} : { needsUser: state.needsUser }),
-        ...(state.error === undefined ? {} : { error: state.error }),
-        ...(state.changedAt === undefined ? {} : { changedAt: state.changedAt })
-      }
-    ])
-  );
-  const rolloutOffsets = Object.fromEntries(
-    Object.entries(value.rolloutOffsets ?? {}).map(([filePath, cursor]) => [
-      filePath,
-      { offset: cursor.offset, ...(cursor.identity ? { identity: cursor.identity } : {}) }
-    ])
-  );
-  return {
-    enhancedStatusEnabled: value.enhancedStatusEnabled ?? DEFAULT_ENHANCED_STATUS_ENABLED,
-    initialized: value.initialized ?? false,
-    threadOrder: [...new Set(value.threadOrder ?? [])],
-    threadStates,
-    rolloutOffsets,
-    ...(value.codexHome?.trim() ? { codexHome: value.codexHome.trim() } : {})
-  };
 }

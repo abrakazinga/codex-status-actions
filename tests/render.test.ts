@@ -7,7 +7,7 @@ describe("tile renderer", () => {
     ["idle", "#F1F1ED"],
     ["unread", "#8FEA98"],
     ["working", "#8DCEF5"],
-    ["needs-user", "#FFCBB6"],
+    ["needs-user", "#FF8A3D"],
     ["error", "#FF6B73"]
   ] as const)("renders %s with its fixed palette", (state, color) => {
     expect(decodeSvg(renderStatusTile(state))).toContain(color);
@@ -56,7 +56,7 @@ describe("tile renderer", () => {
 
   it("renders needs-user as a filled triangle", () => {
     expect(decodeSvg(renderStatusTile("needs-user"))).toContain(
-      '<path d="M72 38 L105.5 96 L38.5 96 Z" fill="#FFCBB6"/>'
+      '<path d="M72 38 L105.5 96 L38.5 96 Z" fill="#FF8A3D"/>'
     );
   });
 

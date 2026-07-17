@@ -14,7 +14,7 @@ import {
 import type { JsonValue } from "@elgato/utils";
 
 import { assignInOrder, type TilePosition } from "../assignment";
-import { ACTION_UUID, DOUBLE_TAP_MS } from "../constants";
+import { DOUBLE_TAP_MS, STATUS_ACTION_UUID } from "../constants";
 import { renderEmptyTile, renderIntegrationError, renderStatusTile } from "../render";
 import type { StatusCoordinator } from "../status/coordinator";
 import { isDoubleTap, type Tap } from "../tap";
@@ -28,7 +28,7 @@ interface PressCapture {
   threadId?: string;
 }
 
-@action({ UUID: ACTION_UUID })
+@action({ UUID: STATUS_ACTION_UUID })
 export class StatusTileAction extends SingletonAction<ActionSettings> {
   private coordinator?: StatusCoordinator;
   private unsubscribe?: () => void;

@@ -2,11 +2,16 @@ import { chmod, copyFile, mkdir, readFile, rename, rm, rmdir, stat, writeFile } 
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 
-import type { AppServerClient, HookMetadata } from "../codex/app-server-client";
+import type { HookMetadata } from "../codex/app-server-client";
 import { HOOK_DIRECTORY_NAME, HOOK_HELPER_NAME, HOOK_SOCKET_NAME } from "../constants";
 import type { HookTrustStatus } from "../types";
 
 type JsonRecord = Record<string, unknown>;
+
+interface HookAppServer {
+  listHooks(cwd: string, ownedCommand: string): Promise<HookMetadata[]>;
+  writeHookStates(states: Record<string, { enabled: boolean; trusted_hash?: string | null }>): Promise<void>;
+}
 
 const OWNED_EVENTS = [
   { event: "PermissionRequest", matcher: "*" },
@@ -17,7 +22,7 @@ const OWNED_EVENTS = [
 export class HookManager {
   constructor(
     private readonly codexHome: string,
-    private readonly appServer: AppServerClient
+    private readonly appServer: HookAppServer
   ) {}
 
   get helperPath(): string {
