@@ -37,6 +37,7 @@ const settingsSchema = z.object({
 
 export class GlobalSettingsStore {
   private settings: GlobalSettings;
+  private persistChain = Promise.resolve();
 
   constructor(
     initialSettings: unknown,
@@ -60,7 +61,10 @@ export class GlobalSettingsStore {
   }
 
   persist(): Promise<void> {
-    return this.persistSettings(this.settings);
+    const snapshot = this.settings;
+    const operation = this.persistChain.then(() => this.persistSettings(snapshot));
+    this.persistChain = operation.catch(() => undefined);
+    return operation;
   }
 }
 

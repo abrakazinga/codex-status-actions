@@ -5,6 +5,7 @@ import { AppServerClient, type HookMetadata, type RateLimitsSnapshot } from "./a
 export class CodexRuntime extends EventEmitter {
   private client: AppServerClient | undefined;
   private starting: Promise<void> | undefined;
+  private stopping: Promise<void> | undefined;
 
   constructor(
     private readonly resolveCodexHome: () => string,
@@ -18,6 +19,7 @@ export class CodexRuntime extends EventEmitter {
   }
 
   async start(): Promise<void> {
+    await this.stopping;
     if (this.connected) return;
     if (this.starting) return this.starting;
     const client = this.client ?? this.createClient();
@@ -29,15 +31,27 @@ export class CodexRuntime extends EventEmitter {
   }
 
   async stop(): Promise<void> {
+    if (this.stopping) return this.stopping;
     const client = this.client;
+    const starting = this.starting;
     this.client = undefined;
-    this.starting = undefined;
-    await client?.stop();
+    this.stopping = (async () => {
+      await starting?.catch(() => undefined);
+      await client?.stop();
+    })().finally(() => {
+      this.stopping = undefined;
+    });
+    return this.stopping;
   }
 
   async restart(): Promise<void> {
     await this.stop();
     await this.start();
+  }
+
+  async reconfigure(): Promise<void> {
+    if (!this.client && !this.starting) return;
+    await this.restart();
   }
 
   async listThreads(limit?: number) {

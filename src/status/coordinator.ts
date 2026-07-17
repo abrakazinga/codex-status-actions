@@ -236,12 +236,10 @@ export class StatusCoordinator {
     };
     this.health = initialHealth();
     await this.persistNow();
+    await this.appServer.reconfigure();
     if (wasStarted) {
-      await this.appServer.restart();
       this.started = true;
       await this.startServices();
-    } else {
-      await this.appServer.stop();
     }
   }
 

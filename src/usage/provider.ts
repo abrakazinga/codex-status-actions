@@ -29,7 +29,8 @@ export class UsageProvider {
   private pollTimer: NodeJS.Timeout | undefined;
   private clockTimer: NodeJS.Timeout | undefined;
   private notificationTimer: NodeJS.Timeout | undefined;
-  private inFlight: Promise<boolean> | undefined;
+  private inFlight: { generation: number; promise: Promise<boolean> } | undefined;
+  private connectionGeneration = 0;
   private started = false;
 
   constructor(
@@ -49,6 +50,8 @@ export class UsageProvider {
 
   stop(): void {
     this.started = false;
+    this.connectionGeneration++;
+    this.inFlight = undefined;
     this.runtime.off("rateLimitsUpdated", this.handleRateLimitsUpdated);
     this.runtime.off("disconnected", this.handleDisconnected);
     this.runtime.off("connected", this.handleConnected);
@@ -78,23 +81,26 @@ export class UsageProvider {
   }
 
   async refresh(): Promise<boolean> {
-    if (this.inFlight) return this.inFlight;
+    const generation = this.connectionGeneration;
+    if (this.inFlight?.generation === generation) return this.inFlight.promise;
     if (!this.state.lastSuccessfulRefresh) {
       this.state = { status: "loading", windows: {} };
       this.emitChange();
     }
-    this.inFlight = this.performRefresh().finally(() => {
+    const promise = this.performRefresh(generation).finally(() => {
+      if (this.inFlight?.promise !== promise) return;
       this.inFlight = undefined;
       this.emitChange();
     });
+    this.inFlight = { generation, promise };
     this.emitChange();
-    return this.inFlight;
+    return promise;
   }
 
   healthSnapshot(): UsageHealthSnapshot {
     return {
       status: this.state.status,
-      fetching: Boolean(this.inFlight),
+      fetching: this.inFlight?.generation === this.connectionGeneration,
       ...(this.state.lastSuccessfulRefresh
         ? { lastSuccessfulRefresh: this.state.lastSuccessfulRefresh }
         : {}),
@@ -107,7 +113,7 @@ export class UsageProvider {
     return JSON.stringify(
       {
         status: this.state.status,
-        fetching: Boolean(this.inFlight),
+        fetching: this.inFlight?.generation === this.connectionGeneration,
         hasSuccessfulRefresh: Boolean(this.state.lastSuccessfulRefresh),
         availableWindows: Object.keys(this.state.windows),
         visibleTileCount: this.registrations.size
@@ -117,12 +123,14 @@ export class UsageProvider {
     );
   }
 
-  private async performRefresh(): Promise<boolean> {
+  private async performRefresh(generation: number): Promise<boolean> {
     try {
       const windows = normalizeRateLimits(await this.runtime.readRateLimits());
+      if (generation !== this.connectionGeneration) return false;
       this.state = { status: "ready", windows, lastSuccessfulRefresh: Date.now() };
       return true;
     } catch {
+      if (generation !== this.connectionGeneration) return false;
       const message = "Usage data could not be fetched";
       this.log(message);
       this.state = this.state.lastSuccessfulRefresh
@@ -142,6 +150,7 @@ export class UsageProvider {
   };
 
   private readonly handleDisconnected = (): void => {
+    this.connectionGeneration++;
     if (this.state.lastSuccessfulRefresh) {
       this.state = { ...this.state, status: "stale", error: "Codex app-server disconnected" };
     } else this.state = { status: "error", windows: {}, error: "Codex app-server disconnected" };
@@ -185,6 +194,12 @@ export class UsageProvider {
   }
 
   private emitChange(): void {
-    for (const listener of this.listeners) listener();
+    for (const listener of this.listeners) {
+      try {
+        listener();
+      } catch {
+        this.log("Usage change listener failed");
+      }
+    }
   }
 }
