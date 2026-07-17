@@ -381,6 +381,7 @@ export class StatusCoordinator {
     const previous =
       this.runtime.get(threadId) ?? initialRuntimeState(this.settings.threadStates?.[threadId]);
     const next = reduceRuntimeState(previous, event);
+    if (next === previous) return;
     if (allowPromotion && event.type === "turn-started") {
       this.settings = {
         ...this.settings,

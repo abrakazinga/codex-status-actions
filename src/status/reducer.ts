@@ -25,9 +25,12 @@ export function initialRuntimeState(persisted?: PersistedThreadState): ThreadRun
 
 export function reduceRuntimeState(previous: ThreadRuntimeState, event: StatusEvent): ThreadRuntimeState {
   if (event.type === "acknowledged") {
+    if (!previous.lastCompletionId || previous.lastCompletionId === previous.lastAcknowledgedCompletionId) {
+      return previous;
+    }
     return {
       ...previous,
-      ...(previous.lastCompletionId ? { lastAcknowledgedCompletionId: previous.lastCompletionId } : {})
+      lastAcknowledgedCompletionId: previous.lastCompletionId
     };
   }
 

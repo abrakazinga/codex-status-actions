@@ -66,7 +66,9 @@ describe("status reducer", () => {
       turnId: "turn-1",
       timestamp: 10
     });
+    const working = state;
     state = reduceRuntimeState(state, { type: "acknowledged", threadId });
+    expect(state).toBe(working);
     expect(state.changedAt).toBe(10);
 
     state = reduceRuntimeState(state, {
