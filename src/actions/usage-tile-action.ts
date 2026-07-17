@@ -14,6 +14,7 @@ import type { JsonValue } from "@elgato/utils";
 
 import { PLUGIN_VERSION, USAGE_ACTION_UUID } from "../constants";
 import { renderStatusTile } from "../render";
+import { RenderLoop } from "../render-loop";
 import { THEME } from "../theme";
 import { toErrorMessage } from "../util";
 import { WorkingAnimation } from "../working-animation";
@@ -31,11 +32,13 @@ export class UsageTileAction extends SingletonAction<UsageActionSettings> {
   private readonly visibleActions = new Map<string, KeyAction<UsageActionSettings>>();
   private readonly settings = new Map<string, UsageActionSettings>();
   private readonly renderedImages = new Map<string, string>();
-  private readonly workingAnimation = new WorkingAnimation(() => this.requestRender());
+  private readonly renderLoop = new RenderLoop(
+    () => this.renderAll(),
+    (error) => streamDeck.logger.error(`Usage tile rendering failed: ${toErrorMessage(error)}`)
+  );
+  private readonly workingAnimation = new WorkingAnimation(() => this.renderLoop.request());
   private readonly unsubscribe: () => void;
   private inspectorContextId: string | undefined;
-  private renderRequested = false;
-  private renderInProgress = false;
 
   constructor(
     private readonly provider: UsageProvider,
@@ -43,7 +46,7 @@ export class UsageTileAction extends SingletonAction<UsageActionSettings> {
   ) {
     super();
     this.unsubscribe = provider.subscribe(() => {
-      this.requestRender();
+      this.renderLoop.request();
       void this.sendInspectorSnapshot();
     });
   }
@@ -54,7 +57,7 @@ export class UsageTileAction extends SingletonAction<UsageActionSettings> {
     this.visibleActions.set(event.action.id, event.action);
     this.settings.set(event.action.id, settings);
     this.register(event.action.id, settings);
-    this.requestRender();
+    this.renderLoop.request();
   }
 
   override onWillDisappear(event: WillDisappearEvent<UsageActionSettings>): void {
@@ -62,7 +65,7 @@ export class UsageTileAction extends SingletonAction<UsageActionSettings> {
     this.settings.delete(event.action.id);
     this.renderedImages.delete(event.action.id);
     this.provider.unregister(event.action.id);
-    this.requestRender();
+    this.renderLoop.request();
   }
 
   override onDidReceiveSettings(event: DidReceiveSettingsEvent<UsageActionSettings>): void {
@@ -70,7 +73,7 @@ export class UsageTileAction extends SingletonAction<UsageActionSettings> {
     const settings = normalizeUsageSettings(event.payload.settings);
     this.settings.set(event.action.id, settings);
     this.register(event.action.id, settings);
-    this.requestRender();
+    this.renderLoop.request();
     void this.sendInspectorSnapshot();
   }
 
@@ -117,6 +120,7 @@ export class UsageTileAction extends SingletonAction<UsageActionSettings> {
 
   dispose(): void {
     this.unsubscribe();
+    this.workingAnimation.setActive(false);
   }
 
   private register(contextId: string, settings: UsageActionSettings): void {
@@ -147,27 +151,6 @@ export class UsageTileAction extends SingletonAction<UsageActionSettings> {
       (result): result is PromiseRejectedResult => result.status === "rejected"
     );
     if (failures.length > 0) throw new Error(`Failed to render ${String(failures.length)} usage tile(s)`);
-  }
-
-  private requestRender(): void {
-    this.renderRequested = true;
-    if (this.renderInProgress) return;
-    this.renderInProgress = true;
-    void this.drainRenders();
-  }
-
-  private async drainRenders(): Promise<void> {
-    try {
-      while (this.renderRequested) {
-        this.renderRequested = false;
-        await this.renderAll();
-      }
-    } catch (error) {
-      streamDeck.logger.error(`Usage tile rendering failed: ${toErrorMessage(error)}`);
-    } finally {
-      this.renderInProgress = false;
-      if (this.renderRequested) this.requestRender();
-    }
   }
 
   private async sendInspectorSnapshot(): Promise<void> {

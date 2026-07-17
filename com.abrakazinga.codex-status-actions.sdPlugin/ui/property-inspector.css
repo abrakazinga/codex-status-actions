@@ -105,6 +105,50 @@ h2 {
   line-height: 1.35;
 }
 
+.shortcut-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 42px;
+}
+
+#shortcut-recorder,
+.shortcut-clear {
+  height: 31px;
+  border: 1px solid var(--line);
+  background: var(--input);
+  color: var(--foreground);
+  font-family: var(--font-ui);
+  cursor: pointer;
+}
+
+#shortcut-recorder {
+  overflow: hidden;
+  border-radius: 6px 0 0 6px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#shortcut-recorder.recording {
+  border-color: var(--blue);
+  color: var(--blue);
+}
+
+#shortcut-recorder kbd {
+  font: 600 12px/1 var(--font-ui);
+}
+
+.shortcut-clear {
+  border-left: 0;
+  border-radius: 0 6px 6px 0;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.shortcut-clear:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+
 .hook-actions {
   display: grid;
   grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
@@ -330,6 +374,11 @@ h2 {
   align-items: baseline;
   padding-top: 10px;
   color: var(--muted);
+}
+
+.debug-actions {
+  display: flex;
+  gap: 12px;
 }
 
 #version {

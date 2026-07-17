@@ -16,6 +16,7 @@ import type { JsonValue } from "@elgato/utils";
 import { assignInOrder, type TilePosition } from "../assignment";
 import { DOUBLE_TAP_MS, STATUS_ACTION_UUID } from "../constants";
 import { renderEmptyTile, renderIntegrationError, renderStatusTile } from "../render";
+import { RenderLoop } from "../render-loop";
 import type { StatusCoordinator } from "../status/coordinator";
 import { isDoubleTap, type Tap } from "../tap";
 import type { PropertyInspectorCommand, TaskNavigator, ThreadStatusSnapshot } from "../types";
@@ -31,17 +32,19 @@ interface PressCapture {
 @action({ UUID: STATUS_ACTION_UUID })
 export class StatusTileAction extends SingletonAction<ActionSettings> {
   private coordinator?: StatusCoordinator;
-  private unsubscribe?: () => void;
+  private unsubscribe: (() => void) | undefined;
   private readonly visibleActions = new Map<string, KeyAction<ActionSettings>>();
   private readonly positions = new Map<string, TilePosition>();
   private readonly renderedThreads = new Map<string, ThreadStatusSnapshot>();
   private readonly renderedImages = new Map<string, string>();
   private readonly presses = new Map<string, PressCapture>();
   private readonly previousTaps = new Map<string, Tap>();
-  private readonly workingAnimation = new WorkingAnimation(() => this.requestRender());
+  private readonly renderLoop = new RenderLoop(
+    () => this.renderAll(),
+    (error) => streamDeck.logger.error(`Tile rendering failed: ${toErrorMessage(error)}`)
+  );
+  private readonly workingAnimation = new WorkingAnimation(() => this.renderLoop.request());
   private inspectorContextId: string | undefined;
-  private renderRequested = false;
-  private renderInProgress = false;
 
   constructor(private readonly navigator: TaskNavigator) {
     super();
@@ -51,10 +54,10 @@ export class StatusTileAction extends SingletonAction<ActionSettings> {
     this.unsubscribe?.();
     this.coordinator = coordinator;
     this.unsubscribe = coordinator.subscribe(() => {
-      this.requestRender();
+      this.renderLoop.request();
       void this.sendInspectorSnapshot();
     });
-    this.requestRender();
+    this.renderLoop.request();
   }
 
   override onWillAppear(event: WillAppearEvent<ActionSettings>): void {
@@ -68,7 +71,7 @@ export class StatusTileAction extends SingletonAction<ActionSettings> {
       row: coordinates.row,
       column: coordinates.column
     });
-    this.requestRender();
+    this.renderLoop.request();
   }
 
   override onWillDisappear(event: WillDisappearEvent<ActionSettings>): void {
@@ -78,7 +81,7 @@ export class StatusTileAction extends SingletonAction<ActionSettings> {
     this.renderedImages.delete(event.action.id);
     this.presses.delete(event.action.id);
     this.previousTaps.delete(event.action.id);
-    this.requestRender();
+    this.renderLoop.request();
   }
 
   override onKeyDown(event: KeyDownEvent<ActionSettings>): void {
@@ -169,6 +172,12 @@ export class StatusTileAction extends SingletonAction<ActionSettings> {
     }
   }
 
+  dispose(): void {
+    this.unsubscribe?.();
+    this.unsubscribe = undefined;
+    this.workingAnimation.setActive(false);
+  }
+
   private async renderAll(): Promise<void> {
     const coordinator = this.coordinator;
     const assignments = assignInOrder(this.positions.values(), coordinator?.snapshot().values() ?? []);
@@ -211,27 +220,6 @@ export class StatusTileAction extends SingletonAction<ActionSettings> {
   private setRenderedThread(contextId: string, snapshot?: ThreadStatusSnapshot): void {
     if (snapshot) this.renderedThreads.set(contextId, snapshot);
     else this.renderedThreads.delete(contextId);
-  }
-
-  private requestRender(): void {
-    this.renderRequested = true;
-    if (this.renderInProgress) return;
-    this.renderInProgress = true;
-    void this.drainRenders();
-  }
-
-  private async drainRenders(): Promise<void> {
-    try {
-      while (this.renderRequested) {
-        this.renderRequested = false;
-        await this.renderAll();
-      }
-    } catch (error) {
-      streamDeck.logger.error(`Tile rendering failed: ${toErrorMessage(error)}`);
-    } finally {
-      this.renderInProgress = false;
-      if (this.renderRequested) this.requestRender();
-    }
   }
 
   private async sendInspectorSnapshot(): Promise<void> {

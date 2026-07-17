@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { DEFAULT_ENHANCED_STATUS_ENABLED } from "./constants";
+import { normalizeShortcut } from "./dictation/shortcut";
 import type { GlobalSettings } from "./types";
 
 type PersistSettings = (settings: GlobalSettings) => Promise<void>;
@@ -29,6 +30,12 @@ const rolloutCursorSchema = z
 const settingsSchema = z.object({
   enhancedStatusEnabled: z.boolean().optional(),
   codexHome: z.string().optional(),
+  dictationShortcut: z
+    .object({
+      key: z.string(),
+      modifiers: z.array(z.enum(["command", "control", "option", "shift"]))
+    })
+    .optional(),
   initialized: z.boolean().optional(),
   threadOrder: z.array(z.string()).optional(),
   threadStates: z.record(z.string(), persistedThreadStateSchema).optional(),
@@ -91,12 +98,14 @@ function normalizeGlobalSettings(settings: unknown): GlobalSettings {
       { offset: cursor.offset, ...(cursor.identity ? { identity: cursor.identity } : {}) }
     ])
   );
+  const dictationShortcut = value.dictationShortcut ? normalizeShortcut(value.dictationShortcut) : undefined;
   return {
     enhancedStatusEnabled: value.enhancedStatusEnabled ?? DEFAULT_ENHANCED_STATUS_ENABLED,
     initialized: value.initialized ?? false,
     threadOrder: [...new Set(value.threadOrder ?? [])],
     threadStates,
     rolloutOffsets,
+    ...(dictationShortcut ? { dictationShortcut } : {}),
     ...(value.codexHome?.trim() ? { codexHome: value.codexHome.trim() } : {})
   };
 }

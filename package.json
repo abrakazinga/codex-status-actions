@@ -1,7 +1,7 @@
 {
   "name": "codex-status-actions",
-  "version": "0.2.0",
-  "description": "Unofficial Stream Deck status tiles for OpenAI Codex",
+  "version": "0.3.0",
+  "description": "Unofficial Stream Deck status, usage, and dictation actions for OpenAI Codex",
   "type": "module",
   "packageManager": "pnpm@10.30.3",
   "engines": {

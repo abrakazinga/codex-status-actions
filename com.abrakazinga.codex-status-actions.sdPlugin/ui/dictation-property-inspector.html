@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Codex Dictation Settings</title>
+    <link rel="stylesheet" href="property-inspector.css" />
+  </head>
+  <body>
+    <main class="panel">
+      <aside class="disclaimer">
+        This unofficial integration asks Codex to dictate through a keyboard shortcut. Codex owns the
+        microphone and transcription; the plugin never records audio or reads dictated text.
+      </aside>
+
+      <section class="section-block">
+        <h2>General</h2>
+        <label class="field-row" for="dictation-mode">
+          <span>Interaction</span>
+          <select id="dictation-mode">
+            <option value="hold">Hold to dictate</option>
+            <option value="toggle">Tap to start / stop</option>
+          </select>
+        </label>
+        <p class="section-description">
+          Both modes use Codex’s Toggle dictation hotkey. Hold sends it on press and release; Codex’s
+          Hold-to-dictate hotkey is not used.
+        </p>
+      </section>
+
+      <section class="section-block">
+        <h2>Shortcut setup</h2>
+        <div class="field-row">
+          <span>Toggle dictation</span>
+          <div class="shortcut-control">
+            <button id="shortcut-recorder" type="button"><kbd>Not set</kbd></button>
+            <button id="clear-shortcut" class="shortcut-clear" type="button">Clear</button>
+          </div>
+        </div>
+        <p class="section-description">
+          Click the field, press a key combination, then assign the same shortcut in Codex → Settings →
+          Keyboard Shortcuts → Toggle dictation hotkey.
+        </p>
+      </section>
+
+      <details class="collapsible debug">
+        <summary>Debug</summary>
+        <div class="collapsible-content">
+          <div class="health" aria-label="Dictation status">
+            <div class="health-row"><span>Codex</span><output id="dictation-codex">UNCHECKED</output></div>
+            <div class="health-row">
+              <span>Shortcut</span><output id="dictation-shortcut">MISSING</output>
+            </div>
+            <div class="health-row">
+              <span>Shortcut access</span><output id="dictation-permission">UNCHECKED</output>
+            </div>
+            <div class="health-row"><span>Tile state</span><output id="dictation-state">IDLE</output></div>
+          </div>
+          <p id="dictation-message" class="usage-health-message hidden"></p>
+          <div class="debug-footer">
+            <div class="debug-actions">
+              <button id="open-privacy" class="text-button" type="button">Privacy settings</button>
+              <button id="copy-diagnostics" class="text-button" type="button">Copy diagnostics</button>
+            </div>
+            <span id="version">v0.3.0</span>
+          </div>
+        </div>
+      </details>
+      <div id="toast" role="status" aria-live="polite"></div>
+    </main>
+    <script src="shared-property-inspector.js"></script>
+    <script src="dictation-property-inspector.js"></script>
+  </body>
+</html>

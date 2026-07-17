@@ -10,6 +10,25 @@ export interface TaskNavigator {
   selectTask(threadId: string, mode: TaskNavigationMode): Promise<void>;
 }
 
+type DictationMode = "hold" | "toggle";
+export type DictationState = "idle" | "activating" | "recording" | "error";
+export type ShortcutModifier = "command" | "control" | "option" | "shift";
+
+export interface ShortcutBinding extends JsonObject {
+  key: string;
+  modifiers: ShortcutModifier[];
+}
+
+export interface DictationActionSettings extends JsonObject {
+  mode: DictationMode;
+}
+
+export interface DictationPlatform {
+  activateCodex(): Promise<void>;
+  emitShortcut(binding: ShortcutBinding): Promise<void>;
+  openPrivacySettings(): Promise<void>;
+}
+
 export interface ThreadRecord {
   id: string;
   updatedAt: number;
@@ -67,6 +86,7 @@ export interface RolloutFileCursor extends JsonObject {
 export interface GlobalSettings extends JsonObject {
   enhancedStatusEnabled: boolean;
   codexHome?: string;
+  dictationShortcut?: ShortcutBinding;
   initialized?: boolean;
   threadOrder?: string[];
   threadStates?: Record<string, PersistedThreadState>;

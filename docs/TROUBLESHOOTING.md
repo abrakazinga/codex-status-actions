@@ -37,6 +37,17 @@ This is intentional when another app is active. Tap the same key a second time w
 
 If navigation reports an error, a Codex update may have changed its task URL. The plugin does not fall back to Accessibility automation.
 
+## Dictation does not start
+
+- In Codex, assign a dedicated shortcut under **Settings → Keyboard Shortcuts → Toggle dictation hotkey**.
+- Do not configure the plugin with Codex's separate **Hold-to-dictate hotkey**. Both tile modes use the Toggle shortcut; Hold mode sends it on press and release.
+- Select the Stream Deck Dictation key, record the exact same shortcut, and verify **Shortcut: Configured** under **Debug**.
+- Press the key once and accept any macOS keyboard-control prompt. If no prompt appears, open **Debug → Privacy settings** and allow Stream Deck/System Events control under Accessibility and Automation. Codex manages microphone permission separately.
+- Avoid shortcuts already handled by macOS or another application. A modified shortcut must be updated in both Codex and the plugin.
+- The plugin can confirm only that it dispatched the shortcut. If the key turns blue but Codex does not dictate, the two configured shortcuts do not match or Codex rejected the command.
+
+Hold mode starts when the Stream Deck key goes down and stops after release. Toggle mode starts on one tap and stops on the next. Removing the key that started dictation or stopping the plugin attempts to stop it once more.
+
 ## Stream Deck does not update in the background
 
 Check macOS **System Settings → General → Login Items & Extensions** and confirm Stream Deck is allowed to run in the background. Also verify the Stream Deck application itself is running.

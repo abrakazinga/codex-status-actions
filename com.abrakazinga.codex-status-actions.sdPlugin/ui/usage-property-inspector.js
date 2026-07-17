@@ -1,27 +1,18 @@
-let socket;
-let actionInfo;
-let propertyInspectorContext;
-let toastTimer;
 let settings = defaults();
 
 function connectElgatoStreamDeckSocket(port, uuid, registerEvent, info, rawActionInfo) {
-  void info;
-  actionInfo = JSON.parse(rawActionInfo);
-  propertyInspectorContext = uuid;
-  settings = normalizeSettings(actionInfo.payload && actionInfo.payload.settings);
-  renderSettings();
-  socket = new WebSocket(`ws://127.0.0.1:${port}`);
-  socket.addEventListener("open", () => {
-    socket.send(JSON.stringify({ event: registerEvent, uuid }));
-    send({ type: "snapshot" });
-  });
-  socket.addEventListener("message", ({ data }) => {
-    const message = JSON.parse(data);
-    if (message.event !== "sendToPropertyInspector") return;
-    receive(message.payload);
+  propertyInspectorHost.connect(port, uuid, registerEvent, info, rawActionInfo, {
+    initialize: initializeSettings,
+    onOpen: () => propertyInspectorHost.send({ type: "snapshot" }),
+    onPayload: receive
   });
 }
 void connectElgatoStreamDeckSocket;
+
+function initializeSettings(actionInfo) {
+  settings = normalizeSettings(actionInfo.payload && actionInfo.payload.settings);
+  renderSettings();
+}
 
 function defaults() {
   return {
@@ -47,41 +38,17 @@ function normalizeSettings(value) {
   };
 }
 
-function send(payload) {
-  if (!socket || socket.readyState !== WebSocket.OPEN) return;
-  socket.send(
-    JSON.stringify({
-      action: actionInfo.action,
-      event: "sendToPlugin",
-      context: propertyInspectorContext,
-      payload
-    })
-  );
-}
-
-function persist() {
-  if (!socket || socket.readyState !== WebSocket.OPEN) return;
-  socket.send(
-    JSON.stringify({
-      action: actionInfo.action,
-      event: "setSettings",
-      context: propertyInspectorContext,
-      payload: settings
-    })
-  );
-}
-
 function receive(payload) {
   if (payload.type === "usage-snapshot") renderSnapshot(payload);
   if (payload.type === "usage-refresh-result") {
-    showToast(payload.ok ? "USAGE REFRESHED" : "REFRESH FAILED", !payload.ok);
+    propertyInspectorHost.showToast(payload.ok ? "USAGE REFRESHED" : "REFRESH FAILED", !payload.ok);
   }
-  if (payload.type === "error") showToast(payload.message, true);
-  if (payload.type === "diagnostics") copyText(payload.text);
+  if (payload.type === "error") propertyInspectorHost.showToast(payload.message, true);
+  if (payload.type === "diagnostics") void propertyInspectorHost.copyDiagnostics(payload.text);
 }
 
 function renderSnapshot(snapshot) {
-  applyTheme(snapshot.theme);
+  propertyInspectorHost.applyTheme(snapshot.theme);
   settings = normalizeSettings(snapshot.settings);
   renderSettings();
   document.querySelector("#codex-home").value = snapshot.codexHome || "";
@@ -118,39 +85,10 @@ function setHealth(id, value) {
   output.className = value === "error" ? "bad" : value === "loading" || value === "stale" ? "warn" : "";
 }
 
-function applyTheme(theme) {
-  if (!theme) return;
-  const root = document.documentElement.style;
-  root.setProperty("--neutral", theme.neutral);
-  root.setProperty("--green", theme.green);
-  root.setProperty("--blue", theme.blue);
-  root.setProperty("--orange", theme.orange);
-  root.setProperty("--red", theme.red);
-  root.setProperty("--on-accent", theme.glyph);
-}
-
-async function copyText(text) {
-  try {
-    await navigator.clipboard.writeText(text);
-    showToast("SAFE DIAGNOSTICS COPIED");
-  } catch {
-    showToast("CLIPBOARD ACCESS FAILED", true);
-  }
-}
-
-function showToast(message, error = false) {
-  const toast = document.querySelector("#toast");
-  toast.textContent = message;
-  toast.style.background = error ? "var(--red)" : "var(--toast-background)";
-  toast.classList.add("visible");
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => toast.classList.remove("visible"), 2200);
-}
-
 function update(key, value) {
   settings = { ...settings, [key]: value };
   renderSettings();
-  persist();
+  propertyInspectorHost.persist(settings);
 }
 
 document
@@ -168,13 +106,10 @@ document
 document
   .querySelector("#refresh-seconds")
   .addEventListener("change", (event) => update("refreshSeconds", Number(event.target.value)));
-document.querySelector("#refresh-now").addEventListener("click", () => send({ type: "refresh" }));
+document
+  .querySelector("#refresh-now")
+  .addEventListener("click", () => propertyInspectorHost.send({ type: "refresh" }));
 document
   .querySelector("#copy-diagnostics")
-  .addEventListener("click", () => send({ type: "copy-diagnostics" }));
-document.querySelector("#apply-home").addEventListener("click", () => {
-  send({ type: "set-codex-home", path: document.querySelector("#codex-home").value.trim() });
-});
-document
-  .querySelector("#reset-home")
-  .addEventListener("click", () => send({ type: "set-codex-home", path: "" }));
+  .addEventListener("click", () => propertyInspectorHost.send({ type: "copy-diagnostics" }));
+propertyInspectorHost.bindCodexHome();

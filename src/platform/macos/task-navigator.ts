@@ -1,8 +1,7 @@
-import { spawn } from "node:child_process";
-
 import { taskDeepLink } from "../../task-link";
 import type { TaskNavigationMode, TaskNavigator } from "../../types";
 import { sleep } from "../../util";
+import { runProcess } from "../process";
 
 const CODEX_BUNDLE_ID = "com.openai.codex";
 const ACTIVATION_WAIT_MS = 175;
@@ -26,12 +25,5 @@ export class MacOsTaskNavigator implements TaskNavigator {
 }
 
 function executeCommand(executable: string, args: readonly string[]): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const child = spawn(executable, [...args], { stdio: "ignore" });
-    child.once("error", reject);
-    child.once("exit", (code) => {
-      if (code === 0) resolve();
-      else reject(new Error(`${executable} exited with status ${String(code ?? "unknown")}`));
-    });
-  });
+  return runProcess(executable, args).then(() => undefined);
 }

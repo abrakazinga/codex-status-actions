@@ -10,10 +10,13 @@ const pluginDirectory = "com.abrakazinga.codex-status-actions.sdPlugin";
 const watchedPluginFiles = [
   "manifest.json",
   "ui/property-inspector.css",
+  "ui/shared-property-inspector.js",
   "ui/property-inspector.html",
   "ui/property-inspector.js",
   "ui/usage-property-inspector.html",
-  "ui/usage-property-inspector.js"
+  "ui/usage-property-inspector.js",
+  "ui/dictation-property-inspector.html",
+  "ui/dictation-property-inspector.js"
 ];
 
 /** @type {import("rollup").RollupOptions} */

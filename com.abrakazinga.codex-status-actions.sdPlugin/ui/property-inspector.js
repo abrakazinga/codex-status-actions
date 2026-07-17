@@ -1,45 +1,19 @@
-let socket;
-let actionInfo;
-let propertyInspectorContext;
-let toastTimer;
-
 function connectElgatoStreamDeckSocket(port, uuid, registerEvent, info, rawActionInfo) {
-  void info;
-  actionInfo = JSON.parse(rawActionInfo);
-  propertyInspectorContext = uuid;
-  socket = new WebSocket(`ws://127.0.0.1:${port}`);
-  socket.addEventListener("open", () => {
-    socket.send(JSON.stringify({ event: registerEvent, uuid }));
-    send({ type: "refresh" });
-  });
-  socket.addEventListener("message", ({ data }) => {
-    const message = JSON.parse(data);
-    if (message.event !== "sendToPropertyInspector") return;
-    receive(message.payload);
+  propertyInspectorHost.connect(port, uuid, registerEvent, info, rawActionInfo, {
+    onOpen: () => propertyInspectorHost.send({ type: "refresh" }),
+    onPayload: receive
   });
 }
 void connectElgatoStreamDeckSocket;
 
-function send(payload) {
-  if (!socket || socket.readyState !== WebSocket.OPEN) return;
-  socket.send(
-    JSON.stringify({
-      action: actionInfo.action,
-      event: "sendToPlugin",
-      context: propertyInspectorContext,
-      payload
-    })
-  );
-}
-
 function receive(payload) {
   if (payload.type === "snapshot") renderSnapshot(payload);
-  if (payload.type === "error") showToast(payload.message, true);
-  if (payload.type === "diagnostics") copyText(payload.text);
+  if (payload.type === "error") propertyInspectorHost.showToast(payload.message, true);
+  if (payload.type === "diagnostics") void propertyInspectorHost.copyDiagnostics(payload.text);
 }
 
 function renderSnapshot(snapshot) {
-  applyTheme(snapshot.theme);
+  propertyInspectorHost.applyTheme(snapshot.theme);
   document.querySelector("#enhanced-status").value = snapshot.settings.enhancedStatusEnabled
     ? "enabled"
     : "disabled";
@@ -59,17 +33,6 @@ function renderSnapshot(snapshot) {
   document.querySelector("#reinstall-hooks").disabled = !snapshot.settings.enhancedStatusEnabled;
 }
 
-function applyTheme(theme) {
-  if (!theme) return;
-  const root = document.documentElement.style;
-  root.setProperty("--neutral", theme.neutral);
-  root.setProperty("--green", theme.green);
-  root.setProperty("--blue", theme.blue);
-  root.setProperty("--orange", theme.orange);
-  root.setProperty("--red", theme.red);
-  root.setProperty("--on-accent", theme.glyph);
-}
-
 function setHealth(id, value) {
   const output = document.querySelector(`#health-${id}`);
   output.textContent = value.replaceAll("-", " ").toUpperCase();
@@ -80,35 +43,16 @@ function setHealth(id, value) {
       : "";
 }
 
-async function copyText(text) {
-  try {
-    await navigator.clipboard.writeText(text);
-    showToast("SAFE DIAGNOSTICS COPIED");
-  } catch {
-    showToast("CLIPBOARD ACCESS FAILED", true);
-  }
-}
-
-function showToast(message, error = false) {
-  const toast = document.querySelector("#toast");
-  toast.textContent = message;
-  toast.style.background = error ? "var(--red)" : "var(--toast-background)";
-  toast.classList.add("visible");
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => toast.classList.remove("visible"), 2200);
-}
-
 document.querySelector("#enhanced-status").addEventListener("change", (event) => {
-  send({ type: "set-enhanced-status", enabled: event.target.value === "enabled" });
+  propertyInspectorHost.send({ type: "set-enhanced-status", enabled: event.target.value === "enabled" });
 });
-document.querySelector("#trust-hooks").addEventListener("click", () => send({ type: "trust-hooks" }));
-document.querySelector("#reinstall-hooks").addEventListener("click", () => send({ type: "reinstall-hooks" }));
+document
+  .querySelector("#trust-hooks")
+  .addEventListener("click", () => propertyInspectorHost.send({ type: "trust-hooks" }));
+document
+  .querySelector("#reinstall-hooks")
+  .addEventListener("click", () => propertyInspectorHost.send({ type: "reinstall-hooks" }));
 document
   .querySelector("#copy-diagnostics")
-  .addEventListener("click", () => send({ type: "copy-diagnostics" }));
-document.querySelector("#apply-home").addEventListener("click", () => {
-  send({ type: "set-codex-home", path: document.querySelector("#codex-home").value.trim() });
-});
-document
-  .querySelector("#reset-home")
-  .addEventListener("click", () => send({ type: "set-codex-home", path: "" }));
+  .addEventListener("click", () => propertyInspectorHost.send({ type: "copy-diagnostics" }));
+propertyInspectorHost.bindCodexHome();

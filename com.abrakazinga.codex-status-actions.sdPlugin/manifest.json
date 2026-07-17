@@ -1,6 +1,6 @@
 {
   "Name": "Codex: Status & Actions",
-  "Version": "0.2.0.0",
+  "Version": "0.3.0.0",
   "Author": "abrakazinga",
   "Actions": [
     {
@@ -30,6 +30,22 @@
       "States": [
         {
           "Image": "imgs/actions/usage/key",
+          "TitleAlignment": "middle",
+          "ShowTitle": false
+        }
+      ]
+    },
+    {
+      "Name": "Codex Dictation",
+      "UUID": "com.abrakazinga.codex-status-actions.dictation",
+      "Icon": "imgs/actions/dictation/icon",
+      "Tooltip": "Dictates into the currently selected Codex task using a configured shortcut.",
+      "PropertyInspectorPath": "ui/dictation-property-inspector.html",
+      "UserTitleEnabled": false,
+      "Controllers": ["Keypad"],
+      "States": [
+        {
+          "Image": "imgs/actions/dictation/key",
           "TitleAlignment": "middle",
           "ShowTitle": false
         }

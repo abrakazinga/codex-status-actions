@@ -107,6 +107,18 @@ describe("Codex hook integration", () => {
     expect(code).toBe(0);
   });
 
+  it("drops oversized hook input without blocking Codex", async () => {
+    const codexHome = await mkdtemp(path.join(tmpdir(), "codex-hooks-oversized-"));
+    const manager = new HookManager(codexHome, new AppServerClient("/bin/false"));
+    await manager.install();
+    const code = await runHelper(manager.helperPath, {
+      session_id: threadId,
+      hook_event_name: "PermissionRequest",
+      prompt: "x".repeat(5_000)
+    });
+    expect(code).toBe(0);
+  });
+
   it("does not remove an owned declaration after manual modification", async () => {
     const codexHome = await mkdtemp(path.join(tmpdir(), "codex-hooks-modified-"));
     const manager = new HookManager(codexHome, new AppServerClient("/bin/false"));

@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/abrakazinga/codex-status-actions/actions/workflows/ci.yml/badge.svg)](https://github.com/abrakazinga/codex-status-actions/actions/workflows/ci.yml)
 
-An unofficial, open-source Stream Deck integration for monitoring local OpenAI Codex tasks and usage on macOS.
+An unofficial, open-source Stream Deck integration for local OpenAI Codex status, usage, and dictation on macOS.
 
 The `Codex Status` action can be placed on one or many keys. Tiles start in recent-task order, then remain stable until a task begins a new turn and moves to the first position.
 
@@ -17,6 +17,8 @@ The `Codex Status` action can be placed on one or many keys. Tiles start in rece
 Each tile is a quiet signal glyph on a transparent surface: a hollow idle circle, filled unread circle, smoothly expanding working segment, approval triangle, or error circle with an X. There are no labels or rank numbers.
 
 The `Codex Usage` action shows remaining, used, or linear-pace percentages for the 5-hour and weekly Codex windows. It supports one large value or two stacked values, optional reset countdowns, and transparent error/loading states. Pace is green and labeled **Behind** when usage is below the linear forecast, orange and labeled **Ahead** when usage is above it, and neutral at zero.
+
+The `Codex Dictation` action brings Codex forward and invokes its configured **Toggle dictation** shortcut. Hold mode sends that toggle on press and release; Toggle mode sends it once per tap. Codex's separate **Hold-to-dictate hotkey** is not used. Codex owns the microphone and transcription, and dictated text remains editable in the selected task. The plugin never submits it automatically.
 
 ## Requirements
 
@@ -36,6 +38,12 @@ Planning questions are detected from local rollout events. The plugin works with
 
 Add **Codex Usage** separately wherever you want quota visibility. It reads the official Codex app-server rate-limit snapshot and does not require status hooks.
 
+For **Codex Dictation**:
+
+1. Assign a dedicated shortcut under **Codex → Settings → Keyboard Shortcuts → Toggle dictation hotkey**.
+2. Add a Dictation action and record the same shortcut in its property inspector.
+3. On the first use, macOS may ask Stream Deck for keyboard-control access. Codex separately manages microphone access.
+
 ## How assignment works
 
 `Most Recent` uses a stable, turn-driven queue:
@@ -47,12 +55,14 @@ Add **Codex Usage** separately wherever you want quota visibility. It reads the 
 - Archived, ephemeral, and spawned subagent tasks are excluded.
 - Each device ranks tasks independently.
 
-## Key presses
+## Status key presses
 
 - **Single tap:** request background selection and acknowledge the represented task.
 - **Second tap within 500 ms:** activate Codex and select the same task again.
 
-Navigation uses the version-checked `codex://threads/<thread-id>` URL and macOS `open`. Codex may still activate itself while handling a single-tap deep link despite the background flag. The plugin does not restore focus, use screen coordinates, request Accessibility access, run AppleScript, or simulate keyboard input.
+Navigation uses the version-checked `codex://threads/<thread-id>` URL and macOS `open`. Codex may still activate itself while handling a single-tap deep link despite the background flag. Status navigation does not restore focus or use screen coordinates.
+
+Dictation is deliberately separate: it activates Codex and sends only the user-configured shortcut through macOS System Events. That action requires macOS Automation/Accessibility permission. It does not inspect Codex's UI, use coordinates, or access private Codex IPC.
 
 ## Privacy and security
 
@@ -63,6 +73,8 @@ Status is assembled locally from:
 - three optional Codex lifecycle hooks for approval detection and compatibility
 
 Usage is read through the official `account/rateLimits/read` app-server method. The plugin does not open `auth.json`, retain authentication tokens, or call a private usage endpoint.
+
+Dictation does not send audio through the plugin. It stores only the shortcut key and modifiers, while Codex handles microphone capture, transcription, and the editable composer text.
 
 The hook helper receives Codex's hook input, extracts only the task ID, turn ID, and event name in memory, and forwards that reduced object over a permission-restricted Unix socket. It never forwards or logs prompts, questions, command text, tool input, transcripts, or file paths. When Stream Deck is unavailable, the helper exits successfully so it cannot block Codex.
 
@@ -96,6 +108,9 @@ Package a distributable artifact with `pnpm run pack`.
 - Approval orange clears on the next observable task activity because Codex does not expose a dedicated approval-resolved lifecycle hook
 - The local task URL is an interoperability surface and may require adaptation after a Codex update
 - A Codex restart is required after installing or changing hooks
+- Dictation requires a matching user-configured Codex shortcut and macOS permission to synthesize it
+- “Recording” means the shortcut was dispatched successfully; Codex does not expose its internal microphone state
+- Dictation always activates Codex and never submits the resulting text
 
 ## License and attribution
 

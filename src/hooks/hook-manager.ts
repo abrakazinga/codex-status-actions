@@ -3,7 +3,12 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 
 import type { HookMetadata } from "../codex/app-server-client";
-import { HOOK_DIRECTORY_NAME, HOOK_HELPER_NAME, HOOK_SOCKET_NAME } from "../constants";
+import {
+  HOOK_DIRECTORY_NAME,
+  HOOK_HELPER_NAME,
+  HOOK_SOCKET_NAME,
+  MAX_HOOK_PAYLOAD_BYTES
+} from "../constants";
 import type { HookTrustStatus } from "../types";
 
 type JsonRecord = Record<string, unknown>;
@@ -222,7 +227,9 @@ function helperScript(): string {
 # Apache-2.0 helper installed by Codex: Status & Actions.
 # It reduces Codex hook input to identifiers and an event name before forwarding locally.
 set +e
-payload=$(/bin/cat)
+payload=$(/usr/bin/head -c ${String(MAX_HOOK_PAYLOAD_BYTES + 1)})
+payload_bytes=$(printf '%s' "$payload" | /usr/bin/wc -c | /usr/bin/tr -d ' ')
+[ "$payload_bytes" -le ${String(MAX_HOOK_PAYLOAD_BYTES)} ] || exit 0
 session_id=$(printf '%s' "$payload" | /usr/bin/plutil -extract session_id raw -o - -- - 2>/dev/null)
 turn_id=$(printf '%s' "$payload" | /usr/bin/plutil -extract turn_id raw -o - -- - 2>/dev/null)
 hook_event=$(printf '%s' "$payload" | /usr/bin/plutil -extract hook_event_name raw -o - -- - 2>/dev/null)

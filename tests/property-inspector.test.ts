@@ -36,7 +36,7 @@ describe("property inspector", () => {
       )
     ) as { Actions: Array<{ UserTitleEnabled?: boolean }> };
 
-    expect(manifest.Actions).toHaveLength(2);
+    expect(manifest.Actions).toHaveLength(3);
     expect(manifest.Actions.every((action) => action.UserTitleEnabled === false)).toBe(true);
   });
 
@@ -58,11 +58,28 @@ describe("property inspector", () => {
     expect(text).toContain("does not read or log prompts, messages, or authentication tokens");
   });
 
-  it("sends commands with the property-inspector context", async () => {
-    const source = await readFile(
-      new URL("../com.abrakazinga.codex-status-actions.sdPlugin/ui/property-inspector.js", import.meta.url),
+  it("provides compact Dictation setup without claiming audio access", async () => {
+    const html = await readFile(
+      new URL(
+        "../com.abrakazinga.codex-status-actions.sdPlugin/ui/dictation-property-inspector.html",
+        import.meta.url
+      ),
       "utf8"
     );
+    const text = html.replace(/\s+/g, " ");
+    expect(html).toContain('<select id="dictation-mode"');
+    expect(html).toContain('id="shortcut-recorder"');
+    expect(html).toContain("<h2>Shortcut setup</h2>");
+    expect(html).toContain("<summary>Debug</summary>");
+    expect(text).toContain("the plugin never records audio or reads dictated text");
+    expect(text).toContain("Toggle dictation hotkey");
+    expect(text).toContain("Hold-to-dictate hotkey is not used");
+    expect(html).not.toContain("<h2>Mac permission</h2>");
+    expect(html.indexOf('id="open-privacy"')).toBeGreaterThan(html.indexOf("<summary>Debug</summary>"));
+  });
+
+  it("sends commands with the property-inspector context", async () => {
+    const source = await inspectorSource("property-inspector.js");
     const sockets: FakeWebSocket[] = [];
     const sandbox = {
       WebSocket: class extends FakeWebSocket {
@@ -115,13 +132,7 @@ describe("property inspector", () => {
   });
 
   it("persists Usage settings with the property-inspector context", async () => {
-    const source = await readFile(
-      new URL(
-        "../com.abrakazinga.codex-status-actions.sdPlugin/ui/usage-property-inspector.js",
-        import.meta.url
-      ),
-      "utf8"
-    );
+    const source = await inspectorSource("usage-property-inspector.js");
     const sockets: FakeWebSocket[] = [];
     const elements = new Map<string, FakeElement>();
     const element = (selector: string): FakeElement => {
@@ -184,14 +195,107 @@ describe("property inspector", () => {
       })
     );
   });
+
+  it("persists Dictation mode and sends the global shortcut through the plugin", async () => {
+    const source = await inspectorSource("dictation-property-inspector.js");
+    const sockets: FakeWebSocket[] = [];
+    const elements = new Map<string, FakeElement>();
+    const element = (selector: string): FakeElement => {
+      const existing = elements.get(selector);
+      if (existing) return existing;
+      const created = new FakeElement();
+      elements.set(selector, created);
+      return created;
+    };
+    const sandbox = {
+      WebSocket: class extends FakeWebSocket {
+        constructor() {
+          super();
+          sockets.push(this);
+        }
+      },
+      document: {
+        documentElement: { style: { setProperty: () => undefined } },
+        querySelector: element
+      },
+      navigator: {},
+      setTimeout,
+      clearTimeout
+    };
+    vm.runInNewContext(source, sandbox);
+    const connect = (
+      sandbox as typeof sandbox & {
+        connectElgatoStreamDeckSocket: (
+          port: number,
+          context: string,
+          registerEvent: string,
+          info: string,
+          actionInfo: string
+        ) => void;
+      }
+    ).connectElgatoStreamDeckSocket;
+    connect(
+      1234,
+      "property-inspector-id",
+      "registerPropertyInspector",
+      "{}",
+      '{"action":"dictation","payload":{"settings":{}}}'
+    );
+    sockets[0]?.open();
+
+    element("#dictation-mode").dispatch("change", { target: { value: "toggle" } });
+    element("#shortcut-recorder").dispatch("keydown", {
+      key: "∂",
+      code: "KeyD",
+      ctrlKey: true,
+      altKey: true,
+      shiftKey: false,
+      metaKey: false,
+      preventDefault: () => undefined
+    });
+
+    expect(sockets[0]?.messages).toContain(
+      JSON.stringify({
+        action: "dictation",
+        event: "setSettings",
+        context: "property-inspector-id",
+        payload: { mode: "toggle" }
+      })
+    );
+    expect(sockets[0]?.messages).toContain(
+      JSON.stringify({
+        action: "dictation",
+        event: "sendToPlugin",
+        context: "property-inspector-id",
+        payload: {
+          type: "set-shortcut",
+          binding: { key: "D", modifiers: ["control", "option"] }
+        }
+      })
+    );
+  });
 });
+
+async function inspectorSource(fileName: string): Promise<string> {
+  const directory = "../com.abrakazinga.codex-status-actions.sdPlugin/ui/";
+  return (
+    await Promise.all(
+      ["shared-property-inspector.js", fileName].map((file) =>
+        readFile(new URL(`${directory}${file}`, import.meta.url), "utf8")
+      )
+    )
+  ).join("\n");
+}
 
 class FakeElement {
   value = "";
   checked = false;
+  disabled = false;
+  textContent = "";
   readonly classList = { add: () => undefined, toggle: () => undefined };
   readonly style = { background: "" };
   private readonly listeners = new Map<string, (event: unknown) => void>();
+  private readonly children = new Map<string, FakeElement>();
 
   addEventListener(event: string, listener: (event: unknown) => void): void {
     this.listeners.set(event, listener);
@@ -199,6 +303,16 @@ class FakeElement {
 
   dispatch(event: string, payload: unknown): void {
     this.listeners.get(event)?.(payload);
+  }
+
+  focus(): void {}
+
+  querySelector(selector: string): FakeElement {
+    const existing = this.children.get(selector);
+    if (existing) return existing;
+    const child = new FakeElement();
+    this.children.set(selector, child);
+    return child;
   }
 }
 

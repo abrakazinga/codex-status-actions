@@ -35,6 +35,7 @@ export default tseslint.config(
         clearTimeout: "readonly",
         document: "readonly",
         navigator: "readonly",
+        propertyInspectorHost: "readonly",
         setTimeout: "readonly"
       }
     }

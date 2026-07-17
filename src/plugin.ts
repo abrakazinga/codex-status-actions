@@ -2,7 +2,10 @@ import streamDeck from "@elgato/streamdeck";
 
 import { StatusTileAction } from "./actions/status-tile-action";
 import { UsageTileAction } from "./actions/usage-tile-action";
+import { DictationTileAction } from "./actions/dictation-tile-action";
 import { CodexRuntime } from "./codex/runtime";
+import { createDictationPlatform } from "./dictation";
+import { DictationController } from "./dictation/controller";
 import { createTaskNavigator } from "./navigation";
 import { GlobalSettingsStore } from "./settings";
 import { StatusCoordinator } from "./status/coordinator";
@@ -20,6 +23,10 @@ const coordinator = new StatusCoordinator(settingsStore, runtime, (message) =>
 );
 const usageProvider = new UsageProvider(runtime, (message) => streamDeck.logger.debug(message));
 const statusAction = new StatusTileAction(createTaskNavigator());
+const dictationController = new DictationController(createDictationPlatform(), settingsStore, (message) =>
+  streamDeck.logger.debug(message)
+);
+const dictationAction = new DictationTileAction(dictationController);
 const usageAction = new UsageTileAction(usageProvider, {
   get: () => settingsStore.current.codexHome,
   set: (path) => coordinator.setCodexHome(path)
@@ -27,14 +34,19 @@ const usageAction = new UsageTileAction(usageProvider, {
 statusAction.attach(coordinator);
 streamDeck.actions.registerAction(statusAction);
 streamDeck.actions.registerAction(usageAction);
+streamDeck.actions.registerAction(dictationAction);
 
 await streamDeck.connect();
 settingsStore.replace(await streamDeck.settings.getGlobalSettings());
+dictationController.markSettingsReady();
 await coordinator.start();
 usageProvider.start();
 
 async function shutdown(): Promise<void> {
+  statusAction.dispose();
   usageAction.dispose();
+  dictationAction.dispose();
+  await dictationController.dispose();
   usageProvider.stop();
   await coordinator.stop();
   await runtime.stop();
