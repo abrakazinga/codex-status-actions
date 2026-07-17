@@ -67,7 +67,6 @@ export interface HealthSnapshot extends JsonObject {
   hooks: HookTrustStatus;
   navigation: "unchecked" | "available" | "error";
   restartRequired: boolean;
-  message?: string;
 }
 
 export interface PersistedThreadState extends JsonObject {

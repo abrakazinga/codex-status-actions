@@ -19,13 +19,13 @@ describe("status coordinator settings", () => {
       codexHome: "/tmp/codex-home"
     });
 
-    coordinator.markNavigation(false, "Sensitive /private/path and task ID");
+    coordinator.markNavigation(false);
     expect(coordinator.unavailable).toBe(false);
     expect(coordinator.propertySnapshot().health.navigation).toBe("error");
+    expect(coordinator.propertySnapshot().health).not.toHaveProperty("message");
     const diagnostics = coordinator.diagnostics();
     expect(JSON.parse(diagnostics)).toMatchObject({ isCustomCodexHomeConfigured: true });
     expect(diagnostics).not.toContain("/tmp/codex-home");
-    expect(diagnostics).not.toContain("Sensitive /private/path and task ID");
   });
 
   it("falls back to safe defaults for malformed settings", () => {

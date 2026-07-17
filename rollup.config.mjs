@@ -2,11 +2,13 @@ import commonjs from "@rollup/plugin-commonjs";
 import nodeResolve from "@rollup/plugin-node-resolve";
 import terser from "@rollup/plugin-terser";
 import typescript from "@rollup/plugin-typescript";
+import { copyFile } from "node:fs/promises";
 import path from "node:path";
 import url from "node:url";
 
 const isWatching = Boolean(process.env.ROLLUP_WATCH);
 const pluginDirectory = "com.abrakazinga.codex-status-actions.sdPlugin";
+const legalFiles = ["LICENSE", "NOTICE", "THIRD_PARTY_NOTICES.md"];
 const watchedPluginFiles = [
   "manifest.json",
   "ui/property-inspector.css",
@@ -35,6 +37,7 @@ export default {
       name: "watch-plugin-files",
       buildStart() {
         for (const file of watchedPluginFiles) this.addWatchFile(`${pluginDirectory}/${file}`);
+        for (const file of legalFiles) this.addWatchFile(file);
       }
     },
     typescript({ mapRoot: isWatching ? "./" : undefined }),
@@ -45,6 +48,12 @@ export default {
       name: "emit-module-package-file",
       generateBundle() {
         this.emitFile({ fileName: "package.json", source: '{ "type": "module" }', type: "asset" });
+      }
+    },
+    {
+      name: "copy-legal-files",
+      async writeBundle() {
+        await Promise.all(legalFiles.map((file) => copyFile(file, path.join(pluginDirectory, file))));
       }
     }
   ]

@@ -10,7 +10,9 @@
       "Tooltip": "Shows a local Codex task in a stable, turn-driven queue.",
       "PropertyInspectorPath": "ui/property-inspector.html",
       "UserTitleEnabled": false,
-      "Controllers": ["Keypad"],
+      "Controllers": [
+        "Keypad"
+      ],
       "States": [
         {
           "Image": "imgs/actions/status/key",
@@ -26,7 +28,9 @@
       "Tooltip": "Shows remaining, used, or pace for Codex usage windows.",
       "PropertyInspectorPath": "ui/usage-property-inspector.html",
       "UserTitleEnabled": false,
-      "Controllers": ["Keypad"],
+      "Controllers": [
+        "Keypad"
+      ],
       "States": [
         {
           "Image": "imgs/actions/usage/key",
@@ -42,7 +46,9 @@
       "Tooltip": "Dictates into the currently selected Codex task using a configured shortcut.",
       "PropertyInspectorPath": "ui/dictation-property-inspector.html",
       "UserTitleEnabled": false,
-      "Controllers": ["Keypad"],
+      "Controllers": [
+        "Keypad"
+      ],
       "States": [
         {
           "Image": "imgs/actions/dictation/key",

@@ -82,8 +82,11 @@ See [Privacy](docs/PRIVACY.md), [Architecture](docs/ARCHITECTURE.md), and [Secur
 
 ## Develop locally
 
+Development requires Node.js 20.19 or newer and pnpm 10.
+
 ```sh
 pnpm install
+pnpm licenses:check
 pnpm typecheck
 pnpm test
 pnpm build

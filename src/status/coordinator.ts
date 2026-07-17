@@ -17,7 +17,7 @@ import type {
   ThreadRuntimeState,
   ThreadStatusSnapshot
 } from "../types";
-import { findCodexBinary, resolveCodexHome, toErrorMessage } from "../util";
+import { findCodexBinary, resolveCodexHome } from "../util";
 import {
   initialRuntimeState,
   persistRuntimeState,
@@ -56,9 +56,7 @@ export class StatusCoordinator {
     private readonly log: (message: string) => void
   ) {
     this.appServer.on("connected", () => this.updateHealth({ catalog: "connected" }));
-    this.appServer.on("disconnected", (error: Error) => {
-      this.updateHealth({ catalog: "disconnected", message: error.message });
-    });
+    this.appServer.on("disconnected", () => this.updateHealth({ catalog: "disconnected" }));
     this.appServer.on("diagnostic", (message: string) => this.log(`app-server: ${message}`));
   }
 
@@ -122,8 +120,8 @@ export class StatusCoordinator {
     this.applyEvent({ type: "acknowledged", threadId });
   }
 
-  markNavigation(available: boolean, message?: string): void {
-    this.updateHealth({ navigation: available ? "available" : "error", ...(message ? { message } : {}) });
+  markNavigation(available: boolean): void {
+    this.updateHealth({ navigation: available ? "available" : "error" });
   }
 
   propertySnapshot(): PropertyInspectorSnapshot {
@@ -188,13 +186,11 @@ export class StatusCoordinator {
       this.hookCount = 0;
       this.updateHealth({
         hooks: "disabled",
-        restartRequired: true,
-        ...(cleanup?.manualCleanupRequired
-          ? { message: "A modified status hook was disabled but left in hooks.json for manual review" }
-          : cleanup?.trustCleanupFailed
-            ? { message: "Hook definitions were removed, but their trust state could not be cleared" }
-            : {})
+        restartRequired: true
       });
+      if (cleanup?.manualCleanupRequired || cleanup?.trustCleanupFailed) {
+        this.log("Status hook cleanup requires manual review");
+      }
     }
     await this.persistNow();
   }
@@ -219,8 +215,8 @@ export class StatusCoordinator {
         if (cleanup?.manualCleanupRequired || cleanup?.trustCleanupFailed) {
           this.log("Old CODEX_HOME hook cleanup requires manual review");
         }
-      } catch (error) {
-        this.log(`Old CODEX_HOME hook cleanup failed: ${toErrorMessage(error)}`);
+      } catch {
+        this.log("Old CODEX_HOME hook cleanup failed");
       }
     }
     if (wasStarted) await this.stop();
@@ -248,8 +244,7 @@ export class StatusCoordinator {
     if (!binary) {
       this.updateHealth({
         codexBinary: "missing",
-        catalog: "disconnected",
-        message: "Codex binary not found"
+        catalog: "disconnected"
       });
     } else {
       this.updateHealth({ codexBinary: "available", catalog: "connecting", navigation: "available" });
@@ -262,7 +257,7 @@ export class StatusCoordinator {
       await this.appServer.start();
       await this.refreshCatalog();
     } catch {
-      this.updateHealth({ catalog: "disconnected", message: "Task catalog unavailable" });
+      this.updateHealth({ catalog: "disconnected" });
     }
 
     this.rolloutWatcher = new RolloutWatcher(
@@ -275,20 +270,14 @@ export class StatusCoordinator {
         this.schedulePersist();
       },
       () => {
-        this.updateHealth({
-          rolloutWatcher: "error",
-          message: "Rollout watcher could not read a session file"
-        });
+        this.updateHealth({ rolloutWatcher: "error" });
       }
     );
     try {
       await this.rolloutWatcher.start();
       this.updateHealth({ rolloutWatcher: "watching" });
     } catch {
-      this.updateHealth({
-        rolloutWatcher: "error",
-        message: "Rollout watcher could not access the sessions directory"
-      });
+      this.updateHealth({ rolloutWatcher: "error" });
     }
 
     if (this.settings.enhancedStatusEnabled) {
@@ -297,8 +286,8 @@ export class StatusCoordinator {
         const changed = await this.hookManager.install();
         if (changed) this.updateHealth({ restartRequired: true });
         await this.refreshHookStatus(true);
-      } catch (error) {
-        this.updateHealth({ hooks: "error", message: toErrorMessage(error) });
+      } catch {
+        this.updateHealth({ hooks: "error" });
       }
     } else {
       this.updateHealth({ hooks: "disabled" });
@@ -332,7 +321,7 @@ export class StatusCoordinator {
       if (!sameOrder(previousOrder, threadOrder)) this.schedulePersist();
       this.updateHealth({ catalog: "connected" });
     } catch {
-      this.updateHealth({ catalog: "disconnected", message: "Task catalog refresh failed" });
+      this.updateHealth({ catalog: "disconnected" });
     }
   }
 
@@ -398,9 +387,7 @@ export class StatusCoordinator {
   private schedulePersist(): void {
     if (this.persistTimer) clearTimeout(this.persistTimer);
     this.persistTimer = setTimeout(() => {
-      void this.persistNow().catch((error: unknown) => {
-        this.log(`Settings persistence failed: ${toErrorMessage(error)}`);
-      });
+      void this.persistNow().catch(() => this.log("Settings persistence failed"));
     }, 400);
   }
 

@@ -28,7 +28,7 @@ The hook process receives the standard Codex hook object, which may include sens
 
 Stream Deck global settings store byte offsets, open-question state, and small state identifiers required for restart recovery. Call IDs are not persisted. The plugin does not copy rollout files or maintain a transcript database.
 
-The Status property inspector receives only the enhanced-status toggle and optional `CODEX_HOME` override. The Usage inspector additionally receives its own presentation settings and source health. The Dictation inspector receives the configured shortcut, interaction mode, and safe capability health. Persisted task identifiers, rollout paths, and usage percentages are not sent to any webview.
+The Status property inspector receives its two settings, content-free component health, theme, and plugin version. The Usage inspector additionally receives presentation settings and source health. The Dictation inspector receives the configured shortcut, interaction mode, and sanitized capability health. Persisted task identifiers, rollout paths, and usage percentages are not sent to any webview.
 
 Usage percentages and reset timestamps remain in memory and are not persisted. Usage key settings contain only presentation choices and refresh interval. Codex performs authentication for app-server requests; the plugin does not read or copy token contents from `auth.json`.
 

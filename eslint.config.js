@@ -25,6 +25,10 @@ export default tseslint.config(
     }
   },
   {
+    files: ["scripts/**/*.mjs"],
+    ...tseslint.configs.disableTypeChecked
+  },
+  {
     files: ["com.abrakazinga.codex-status-actions.sdPlugin/ui/**/*.js"],
     ...tseslint.configs.disableTypeChecked,
     languageOptions: {

@@ -115,9 +115,9 @@ export class StatusTileAction extends SingletonAction<ActionSettings> {
       await this.navigator.selectTask(threadId, isSecondTap ? "foreground" : "background");
       this.coordinator?.acknowledge(threadId);
       this.coordinator?.markNavigation(true);
-    } catch (error) {
+    } catch {
       if (this.previousTaps.get(contextId) === tap) this.previousTaps.delete(contextId);
-      this.coordinator?.markNavigation(false, toErrorMessage(error));
+      this.coordinator?.markNavigation(false);
       await event.action.showAlert();
     }
   }

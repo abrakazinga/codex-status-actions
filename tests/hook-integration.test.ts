@@ -127,6 +127,25 @@ describe("Codex hook integration", () => {
     expect(received).toBe(false);
   });
 
+  it("drops malformed task identifiers before forwarding", async () => {
+    const codexHome = await mkdtemp(path.join(tmpdir(), "csa-invalid-id-"));
+    const manager = new HookManager(codexHome, new AppServerClient("/bin/false"));
+    await manager.install();
+    let received = false;
+    const server = trackServer(
+      new HookServer(codexHome, () => {
+        received = true;
+      })
+    );
+    await server.start();
+    const code = await runHelper(manager.helperPath, {
+      session_id: "------------------------------------",
+      hook_event_name: "PermissionRequest"
+    });
+    expect(code).toBe(0);
+    expect(received).toBe(false);
+  });
+
   it("does not remove an owned declaration after manual modification", async () => {
     const codexHome = await mkdtemp(path.join(tmpdir(), "codex-hooks-modified-"));
     const manager = new HookManager(codexHome, new AppServerClient("/bin/false"));

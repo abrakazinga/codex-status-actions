@@ -3,6 +3,9 @@ coverage/
 release/
 *.streamDeckPlugin
 com.abrakazinga.codex-status-actions.sdPlugin/bin/
+com.abrakazinga.codex-status-actions.sdPlugin/LICENSE
+com.abrakazinga.codex-status-actions.sdPlugin/NOTICE
+com.abrakazinga.codex-status-actions.sdPlugin/THIRD_PARTY_NOTICES.md
 *.log
 .DS_Store
 .idea/

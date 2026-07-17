@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   verify:
-    # The plugin and its privacy-preserving hook helper are macOS-only in v0.1.
+    # The plugin and its privacy-preserving hook helper are macOS-only.
     # Running CI on macOS exercises the same plutil/curl integration users install.
     runs-on: macos-14
     steps:
@@ -24,7 +24,7 @@ jobs:
           node-version: 20
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm licenses list --prod
+      - run: pnpm licenses:check
       - run: pnpm format:check
       - run: pnpm lint
       - run: pnpm typecheck

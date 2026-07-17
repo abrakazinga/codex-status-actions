@@ -2,10 +2,11 @@
   "name": "codex-status-actions",
   "version": "0.3.0",
   "description": "Unofficial Stream Deck status, usage, and dictation actions for OpenAI Codex",
+  "private": true,
   "type": "module",
   "packageManager": "pnpm@10.30.3",
   "engines": {
-    "node": ">=20.5.1"
+    "node": ">=20.19.0"
   },
   "scripts": {
     "build": "rollup -c",
@@ -14,6 +15,7 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "licenses:check": "node scripts/check-licenses.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "validate": "streamdeck validate --no-update-check com.abrakazinga.codex-status-actions.sdPlugin",
@@ -34,7 +36,7 @@
     "@rollup/plugin-terser": "^1.0.0",
     "@rollup/plugin-typescript": "^12.3.0",
     "@tsconfig/node20": "^20.1.8",
-    "@types/node": "^24.10.1",
+    "@types/node": "^20.19.0",
     "eslint": "^9.39.1",
     "prettier": "^3.6.2",
     "rollup": "^4.53.3",

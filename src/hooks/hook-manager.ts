@@ -235,7 +235,7 @@ turn_id=$(printf '%s' "$payload" | /usr/bin/plutil -extract turn_id raw -o - -- 
 hook_event=$(printf '%s' "$payload" | /usr/bin/plutil -extract hook_event_name raw -o - -- - 2>/dev/null)
 tool_name=$(printf '%s' "$payload" | /usr/bin/plutil -extract tool_name raw -o - -- - 2>/dev/null)
 
-printf '%s' "$session_id" | /usr/bin/grep -Eq '^[0-9a-fA-F-]{36}$' || exit 0
+printf '%s' "$session_id" | /usr/bin/grep -Eq '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$' || exit 0
 printf '%s' "$turn_id" | /usr/bin/grep -Eq '^[A-Za-z0-9_-]{1,128}$' || turn_id=''
 
 case "$hook_event:$tool_name" in
