@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 describe("property inspector", () => {
   it("uses an accurate local-data disclaimer without a branded header", async () => {
     const html = await readFile(
-      new URL("../com.abrakazinga.codex-status-actions.sdPlugin/ui/property-inspector.html", import.meta.url),
+      new URL("../com.alxbra.codex-status-actions.sdPlugin/ui/property-inspector.html", import.meta.url),
       "utf8"
     );
     const text = html.replace(/\s+/g, " ");
@@ -26,24 +26,31 @@ describe("property inspector", () => {
     expect(html.indexOf("Debug")).toBeLessThan(html.indexOf('id="health-binary"'));
     expect(html).not.toContain("CODEX STATUS");
     expect(html).not.toContain('class="masthead"');
+    expect(html).toContain('<span id="version">v—</span>');
   });
 
   it("disables Stream Deck's standard title field", async () => {
     const manifest = JSON.parse(
       await readFile(
-        new URL("../com.abrakazinga.codex-status-actions.sdPlugin/manifest.json", import.meta.url),
+        new URL("../com.alxbra.codex-status-actions.sdPlugin/manifest.json", import.meta.url),
         "utf8"
       )
-    ) as { Actions: Array<{ UserTitleEnabled?: boolean }> };
+    ) as { UUID: string; Actions: Array<{ UUID: string; UserTitleEnabled?: boolean }> };
 
     expect(manifest.Actions).toHaveLength(3);
     expect(manifest.Actions.every((action) => action.UserTitleEnabled === false)).toBe(true);
+    expect(manifest.UUID).toBe("com.alxbra.codex-status-actions");
+    expect(manifest.Actions.map(({ UUID }) => UUID)).toEqual([
+      "com.alxbra.codex-status-actions.status",
+      "com.alxbra.codex-status-actions.usage",
+      "com.alxbra.codex-status-actions.dictation"
+    ]);
   });
 
   it("provides compact Usage controls and conditional Pace copy", async () => {
     const html = await readFile(
       new URL(
-        "../com.abrakazinga.codex-status-actions.sdPlugin/ui/usage-property-inspector.html",
+        "../com.alxbra.codex-status-actions.sdPlugin/ui/usage-property-inspector.html",
         import.meta.url
       ),
       "utf8"
@@ -56,12 +63,13 @@ describe("property inspector", () => {
     expect(html).toContain("<summary>Advanced</summary>");
     expect(html).toContain("<summary>Debug</summary>");
     expect(text).toContain("does not read or log prompts, messages, or authentication tokens");
+    expect(html).toContain('<span id="version">v—</span>');
   });
 
   it("provides compact Dictation setup without claiming audio access", async () => {
     const html = await readFile(
       new URL(
-        "../com.abrakazinga.codex-status-actions.sdPlugin/ui/dictation-property-inspector.html",
+        "../com.alxbra.codex-status-actions.sdPlugin/ui/dictation-property-inspector.html",
         import.meta.url
       ),
       "utf8"
@@ -76,6 +84,7 @@ describe("property inspector", () => {
     expect(text).toContain("Hold-to-dictate hotkey is not used");
     expect(html).not.toContain("<h2>Mac permission</h2>");
     expect(html.indexOf('id="open-privacy"')).toBeGreaterThan(html.indexOf("<summary>Debug</summary>"));
+    expect(html).toContain('<span id="version">v—</span>');
   });
 
   it("sends commands with the property-inspector context", async () => {
@@ -279,7 +288,7 @@ describe("property inspector", () => {
 });
 
 async function inspectorSource(fileName: string): Promise<string> {
-  const directory = "../com.abrakazinga.codex-status-actions.sdPlugin/ui/";
+  const directory = "../com.alxbra.codex-status-actions.sdPlugin/ui/";
   return (
     await Promise.all(
       ["shared-property-inspector.js", fileName].map((file) =>

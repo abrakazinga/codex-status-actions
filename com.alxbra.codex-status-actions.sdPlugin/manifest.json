@@ -1,11 +1,11 @@
 {
   "Name": "Codex: Status & Actions",
   "Version": "0.3.0.0",
-  "Author": "abrakazinga",
+  "Author": "alxbra",
   "Actions": [
     {
       "Name": "Codex Status",
-      "UUID": "com.abrakazinga.codex-status-actions.status",
+      "UUID": "com.alxbra.codex-status-actions.status",
       "Icon": "imgs/actions/status/icon",
       "Tooltip": "Shows a local Codex task in a stable, turn-driven queue.",
       "PropertyInspectorPath": "ui/property-inspector.html",
@@ -23,7 +23,7 @@
     },
     {
       "Name": "Codex Usage",
-      "UUID": "com.abrakazinga.codex-status-actions.usage",
+      "UUID": "com.alxbra.codex-status-actions.usage",
       "Icon": "imgs/actions/usage/icon",
       "Tooltip": "Shows remaining, used, or pace for Codex usage windows.",
       "PropertyInspectorPath": "ui/usage-property-inspector.html",
@@ -41,7 +41,7 @@
     },
     {
       "Name": "Codex Dictation",
-      "UUID": "com.abrakazinga.codex-status-actions.dictation",
+      "UUID": "com.alxbra.codex-status-actions.dictation",
       "Icon": "imgs/actions/dictation/icon",
       "Tooltip": "Dictates into the currently selected Codex task using a configured shortcut.",
       "PropertyInspectorPath": "ui/dictation-property-inspector.html",
@@ -76,5 +76,5 @@
   "Nodejs": {
     "Version": "20"
   },
-  "UUID": "com.abrakazinga.codex-status-actions"
+  "UUID": "com.alxbra.codex-status-actions"
 }

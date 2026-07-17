@@ -1,4 +1,4 @@
-const PLUGIN_UUID = "com.abrakazinga.codex-status-actions";
+const PLUGIN_UUID = "com.alxbra.codex-status-actions";
 export const STATUS_ACTION_UUID = `${PLUGIN_UUID}.status`;
 export const USAGE_ACTION_UUID = `${PLUGIN_UUID}.usage`;
 export const DICTATION_ACTION_UUID = `${PLUGIN_UUID}.dictation`;
