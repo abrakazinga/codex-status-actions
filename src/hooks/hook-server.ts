@@ -77,6 +77,7 @@ export class HookServer {
     request: IncomingMessage,
     response: import("node:http").ServerResponse
   ): Promise<void> {
+    const receivedAt = Date.now();
     if (request.method !== "POST" || request.url !== "/hook") {
       response.writeHead(404).end();
       return;
@@ -100,7 +101,7 @@ export class HookServer {
         version: parsed.version,
         event: parsed.event,
         threadId: parsed.threadId,
-        timestamp: Date.now(),
+        timestamp: receivedAt,
         ...(parsed.turnId ? { turnId: parsed.turnId } : {})
       };
       this.onEnvelope(envelope);

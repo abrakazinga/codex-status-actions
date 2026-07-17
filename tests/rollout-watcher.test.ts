@@ -6,7 +6,12 @@ import { mkdtemp } from "node:fs/promises";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { RolloutWatcher, type ParsedRolloutEvent } from "../src/codex/rollout-watcher";
-import { initialRuntimeState, reduceRuntimeState, visualState } from "../src/status/reducer";
+import {
+  initialRuntimeState,
+  persistRuntimeState,
+  reduceRuntimeState,
+  visualState
+} from "../src/status/reducer";
 import type { RolloutFileCursor } from "../src/types";
 import { waitFor } from "./helpers";
 
@@ -184,6 +189,66 @@ describe("rollout watcher", () => {
     watchers.add(watcher);
     await watcher.start();
     expect(events.map(({ event }) => event.type)).toEqual(["activity"]);
+  });
+
+  it("clears a persisted planning question when its output arrives after restart", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "codex-rollout-question-restart-"));
+    const sessions = path.join(root, "sessions");
+    await mkdir(sessions, { recursive: true });
+    const file = path.join(sessions, `rollout-${threadId}.jsonl`);
+    const callId = "call-before-restart";
+    await writeFile(
+      file,
+      `${JSON.stringify({
+        type: "response_item",
+        timestamp: new Date().toISOString(),
+        payload: { type: "function_call", name: "request_user_input", call_id: callId }
+      })}\n`
+    );
+
+    let cursors: Record<string, RolloutFileCursor> = {};
+    const beforeRestart: ParsedRolloutEvent[] = [];
+    const first = new RolloutWatcher(
+      sessions,
+      cursors,
+      false,
+      (event) => beforeRestart.push(event),
+      (next) => {
+        cursors = next;
+      }
+    );
+    watchers.add(first);
+    await first.start();
+    await first.stop();
+    const waiting = beforeRestart.reduce(
+      (state, { event }) => reduceRuntimeState(state, event),
+      initialRuntimeState()
+    );
+    const restored = initialRuntimeState(persistRuntimeState(waiting));
+    expect(visualState(restored)).toBe("needs-user");
+
+    await appendFile(
+      file,
+      `${JSON.stringify({
+        type: "response_item",
+        timestamp: new Date().toISOString(),
+        payload: { type: "function_call_output", call_id: callId }
+      })}\n`
+    );
+    const afterRestart: ParsedRolloutEvent[] = [];
+    const second = new RolloutWatcher(
+      sessions,
+      cursors,
+      false,
+      (event) => afterRestart.push(event),
+      () => undefined
+    );
+    watchers.add(second);
+    await second.start();
+
+    expect(afterRestart.map(({ event }) => event.type)).toEqual(["activity"]);
+    const resumed = afterRestart.reduce((state, { event }) => reduceRuntimeState(state, event), restored);
+    expect(visualState(resumed)).toBe("working");
   });
 
   it("replays an incomplete line after restart without losing its prefix", async () => {
