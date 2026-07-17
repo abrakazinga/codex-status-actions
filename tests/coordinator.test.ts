@@ -22,6 +22,8 @@ describe("status coordinator settings", () => {
     });
 
     coordinator.markNavigation(false, "Sensitive /private/path and task ID");
+    expect(coordinator.unavailable).toBe(false);
+    expect(coordinator.propertySnapshot().health.navigation).toBe("error");
     const diagnostics = coordinator.diagnostics();
     expect(JSON.parse(diagnostics)).toMatchObject({ isCustomCodexHomeConfigured: true });
     expect(diagnostics).not.toContain("/tmp/codex-home");

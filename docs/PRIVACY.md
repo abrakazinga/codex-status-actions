@@ -5,7 +5,7 @@ Codex: Status & Actions runs locally and does not provide its own network servic
 ## Data read
 
 - Task IDs, timestamps, ephemeral state, and hierarchy from local Codex `thread/list`
-- Event type, timestamp, thread ID, and turn ID from local rollout JSONL files
+- Event type, timestamp, thread ID, turn ID, tool name, and transient call ID from local rollout JSONL files
 - Hook event name, thread ID, and turn ID from local Codex hook invocations
 
 Other `thread/list` fields are discarded during validation and are not retained by the plugin.
@@ -23,7 +23,7 @@ The hook process receives the standard Codex hook object, which may include sens
 
 ## Local storage
 
-Stream Deck global settings store byte offsets and small state identifiers required for restart recovery. The plugin does not copy rollout files or maintain a transcript database.
+Stream Deck global settings store byte offsets, open-question state, and small state identifiers required for restart recovery. Call IDs are not persisted. The plugin does not copy rollout files or maintain a transcript database.
 
 The property inspector receives only the enhanced-status toggle and optional `CODEX_HOME` override. Persisted task identifiers and rollout paths are not sent to its webview.
 

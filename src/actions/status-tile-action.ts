@@ -20,6 +20,7 @@ import type { StatusCoordinator } from "../status/coordinator";
 import { isDoubleTap, type Tap } from "../tap";
 import type { PropertyInspectorCommand, TaskNavigator, ThreadStatusSnapshot } from "../types";
 import { toErrorMessage } from "../util";
+import { WorkingAnimation } from "../working-animation";
 
 type ActionSettings = Record<string, never>;
 
@@ -37,6 +38,7 @@ export class StatusTileAction extends SingletonAction<ActionSettings> {
   private readonly renderedImages = new Map<string, string>();
   private readonly presses = new Map<string, PressCapture>();
   private readonly previousTaps = new Map<string, Tap>();
+  private readonly workingAnimation = new WorkingAnimation(() => this.requestRender());
   private inspectorContextId: string | undefined;
   private renderRequested = false;
   private renderInProgress = false;
@@ -90,11 +92,6 @@ export class StatusTileAction extends SingletonAction<ActionSettings> {
     const contextId = event.action.id;
     const capture = this.presses.get(contextId);
     this.presses.delete(contextId);
-    if (this.coordinator?.navigationDisabled) {
-      this.previousTaps.delete(contextId);
-      await event.action.showAlert();
-      return;
-    }
     const threadId = capture?.threadId;
     if (!threadId) {
       this.previousTaps.delete(contextId);
@@ -175,6 +172,10 @@ export class StatusTileAction extends SingletonAction<ActionSettings> {
   private async renderAll(): Promise<void> {
     const coordinator = this.coordinator;
     const assignments = assignInOrder(this.positions.values(), coordinator?.snapshot().values() ?? []);
+    const hasWorkingTile =
+      !coordinator?.unavailable &&
+      [...assignments.values()].some(({ snapshot }) => snapshot?.state === "working");
+    this.workingAnimation.setActive(hasWorkingTile);
 
     const results = await Promise.allSettled(
       [...this.visibleActions].map(async ([contextId, key]) => {
@@ -185,7 +186,7 @@ export class StatusTileAction extends SingletonAction<ActionSettings> {
           image = renderIntegrationError();
         } else if (snapshot) {
           renderedSnapshot = snapshot;
-          image = renderStatusTile(snapshot.state);
+          image = renderStatusTile(snapshot.state, this.workingAnimation.frame);
         } else {
           image = renderEmptyTile();
         }

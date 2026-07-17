@@ -5,13 +5,15 @@ export type StatusEvent =
   | { type: "activity"; threadId: string; timestamp: number }
   | { type: "turn-completed"; threadId: string; turnId?: string; timestamp: number }
   | { type: "turn-error"; threadId: string; turnId?: string; timestamp: number }
-  | { type: "acknowledged"; threadId: string; timestamp: number }
+  | { type: "input-requested"; threadId: string; turnId?: string; callId: string; timestamp: number }
+  | { type: "input-resolved"; threadId: string; callId: string; timestamp: number }
+  | { type: "acknowledged"; threadId: string }
   | { type: "hook"; envelope: HookEnvelope };
 
 export function initialRuntimeState(persisted?: PersistedThreadState): ThreadRuntimeState {
   return {
     working: false,
-    needsUser: false,
+    needsUser: persisted?.needsUser ?? false,
     error: persisted?.error ?? false,
     changedAt: persisted?.changedAt ?? 0,
     ...(persisted?.lastCompletionId ? { lastCompletionId: persisted.lastCompletionId } : {}),
@@ -22,6 +24,16 @@ export function initialRuntimeState(persisted?: PersistedThreadState): ThreadRun
 }
 
 export function reduceRuntimeState(previous: ThreadRuntimeState, event: StatusEvent): ThreadRuntimeState {
+  if (event.type === "acknowledged") {
+    if (!previous.lastCompletionId || previous.lastCompletionId === previous.lastAcknowledgedCompletionId) {
+      return previous;
+    }
+    return {
+      ...previous,
+      lastAcknowledgedCompletionId: previous.lastCompletionId
+    };
+  }
+
   const timestamp = event.type === "hook" ? event.envelope.timestamp : event.timestamp;
   if (timestamp < previous.changedAt) return previous;
 
@@ -36,6 +48,10 @@ export function reduceRuntimeState(previous: ThreadRuntimeState, event: StatusEv
         ...(previous.lastCompletionId ? { lastAcknowledgedCompletionId: previous.lastCompletionId } : {})
       };
     case "activity":
+      return { ...previous, working: true, needsUser: false, changedAt: event.timestamp };
+    case "input-requested":
+      return { ...previous, working: true, needsUser: true, changedAt: event.timestamp };
+    case "input-resolved":
       return { ...previous, working: true, needsUser: false, changedAt: event.timestamp };
     case "turn-completed": {
       const completionId = event.turnId ?? `${event.threadId}:${String(event.timestamp)}`;
@@ -55,12 +71,6 @@ export function reduceRuntimeState(previous: ThreadRuntimeState, event: StatusEv
         needsUser: false,
         error: true,
         changedAt: event.timestamp
-      };
-    case "acknowledged":
-      return {
-        ...previous,
-        changedAt: Math.max(previous.changedAt, event.timestamp),
-        ...(previous.lastCompletionId ? { lastAcknowledgedCompletionId: previous.lastCompletionId } : {})
       };
     case "hook": {
       const { envelope } = event;
@@ -93,6 +103,7 @@ export function persistRuntimeState(runtime: ThreadRuntimeState): PersistedThrea
     ...(runtime.lastAcknowledgedCompletionId
       ? { lastAcknowledgedCompletionId: runtime.lastAcknowledgedCompletionId }
       : {}),
+    needsUser: runtime.needsUser,
     error: runtime.error,
     changedAt: runtime.changedAt
   };

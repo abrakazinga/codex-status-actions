@@ -16,6 +16,11 @@ interface RolloutEvent {
   payload?: {
     type?: string;
     turn_id?: string;
+    name?: string;
+    call_id?: string;
+    internal_chat_message_metadata_passthrough?: {
+      turn_id?: string;
+    };
   };
 }
 
@@ -34,7 +39,9 @@ export class RolloutWatcher {
   private watcher: FSWatcher | undefined;
   private readonly files = new Map<string, FileState>();
   private readonly seen = new Set<string>();
+  private readonly pendingInputCalls = new Map<string, string>();
   private initialScan = true;
+  private stopped = true;
 
   constructor(
     private readonly sessionsDirectory: string,
@@ -46,6 +53,7 @@ export class RolloutWatcher {
   ) {}
 
   async start(): Promise<void> {
+    this.stopped = false;
     this.watcher = chokidar.watch(this.sessionsDirectory, {
       ignoreInitial: false,
       persistent: true,
@@ -77,11 +85,18 @@ export class RolloutWatcher {
   }
 
   async stop(): Promise<void> {
-    await this.watcher?.close();
+    this.stopped = true;
+    const watcher = this.watcher;
     this.watcher = undefined;
+    await watcher?.close();
+    const pending = [...this.files.values()]
+      .map((state) => state.processing)
+      .filter((value): value is Promise<void> => Boolean(value));
+    await Promise.all(pending);
   }
 
   private queue(filePath: string): void {
+    if (this.stopped) return;
     const existing = this.files.get(filePath) ?? {
       offset: this.storedOffsets[filePath]?.offset ?? 0,
       ...(this.storedOffsets[filePath]?.identity ? { identity: this.storedOffsets[filePath].identity } : {})
@@ -92,7 +107,7 @@ export class RolloutWatcher {
     existing.processing = (existing.processing ?? Promise.resolve())
       .then(() => this.readNewContent(filePath, existing, baseline))
       .catch((error: unknown) => {
-        if ((error as NodeJS.ErrnoException).code !== "ENOENT") this.onError(error);
+        if (!this.stopped && (error as NodeJS.ErrnoException).code !== "ENOENT") this.onError(error);
       });
   }
 
@@ -106,7 +121,7 @@ export class RolloutWatcher {
     }
     state.identity = identity;
     if (metadata.size === state.offset) {
-      if (cursorChanged) this.onOffsetsChanged(this.currentOffsets());
+      if (cursorChanged && !this.stopped) this.onOffsetsChanged(this.currentOffsets());
       return;
     }
 
@@ -155,7 +170,7 @@ export class RolloutWatcher {
         }
       }
 
-      if (cursorChanged) this.onOffsetsChanged(this.currentOffsets());
+      if (cursorChanged && !this.stopped) this.onOffsetsChanged(this.currentOffsets());
     } finally {
       await handle.close();
     }
@@ -172,33 +187,76 @@ export class RolloutWatcher {
     const timestamp = record.timestamp ? Date.parse(record.timestamp) : Date.now();
     if (!Number.isFinite(timestamp)) return;
     const payloadType = record.payload?.type;
-    const turnId = record.payload?.turn_id;
-    const fingerprint = `${threadId}:${record.timestamp ?? ""}:${record.type ?? ""}:${payloadType ?? ""}:${turnId ?? ""}`;
+    const payloadName = record.payload?.name;
+    const callId = record.payload?.call_id;
+    const turnId =
+      record.payload?.turn_id ?? record.payload?.internal_chat_message_metadata_passthrough?.turn_id;
+    const fingerprint = `${threadId}:${record.timestamp ?? ""}:${record.type ?? ""}:${payloadType ?? ""}:${payloadName ?? ""}:${callId ?? ""}:${turnId ?? ""}`;
     if (this.seen.has(fingerprint)) return;
     this.seen.add(fingerprint);
     if (this.seen.size > 2_000) this.seen.delete(this.seen.values().next().value ?? "");
 
     let event: StatusEvent | undefined;
-    if (record.type === "event_msg" && (payloadType === "task_started" || payloadType === "turn_started")) {
+    if (
+      record.type === "response_item" &&
+      payloadType === "function_call" &&
+      payloadName === "request_user_input" &&
+      callId
+    ) {
+      this.pendingInputCalls.set(callId, threadId);
+      event = {
+        type: "input-requested",
+        threadId,
+        callId,
+        timestamp,
+        ...(turnId ? { turnId } : {})
+      };
+    } else if (
+      record.type === "response_item" &&
+      payloadType === "function_call_output" &&
+      callId &&
+      this.pendingInputCalls.get(callId) === threadId
+    ) {
+      this.pendingInputCalls.delete(callId);
+      event = { type: "input-resolved", threadId, callId, timestamp };
+    } else if (
+      record.type === "event_msg" &&
+      (payloadType === "task_started" || payloadType === "turn_started")
+    ) {
       event = { type: "turn-started", threadId, timestamp, ...(turnId ? { turnId } : {}) };
     } else if (
       record.type === "event_msg" &&
       (payloadType === "task_complete" || payloadType === "turn_complete")
     ) {
+      this.clearPendingInput(threadId);
       event = { type: "turn-completed", threadId, timestamp, ...(turnId ? { turnId } : {}) };
     } else if (
       record.type === "event_msg" &&
       ["turn_aborted", "error", "stream_error"].includes(payloadType ?? "")
     ) {
+      this.clearPendingInput(threadId);
       event = { type: "turn-error", threadId, timestamp, ...(turnId ? { turnId } : {}) };
     } else if (
-      record.type === "response_item" ||
+      (record.type === "response_item" && !this.hasPendingInput(threadId)) ||
       (record.type === "event_msg" &&
         ["agent_message", "user_message", "patch_apply_end"].includes(payloadType ?? ""))
     ) {
       event = { type: "activity", threadId, timestamp };
     }
-    if (event) this.onEvent({ event, baseline });
+    if (event && !this.stopped) this.onEvent({ event, baseline });
+  }
+
+  private hasPendingInput(threadId: string): boolean {
+    for (const pendingThreadId of this.pendingInputCalls.values()) {
+      if (pendingThreadId === threadId) return true;
+    }
+    return false;
+  }
+
+  private clearPendingInput(threadId: string): void {
+    for (const [callId, pendingThreadId] of this.pendingInputCalls) {
+      if (pendingThreadId === threadId) this.pendingInputCalls.delete(callId);
+    }
   }
 
   private currentOffsets(): Record<string, RolloutFileCursor> {

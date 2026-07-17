@@ -18,9 +18,8 @@ describe("property inspector", () => {
     expect(html).toMatch(/<select\b(?=[^>]*\bid="assignment-mode")(?=[^>]*\bdisabled\b)[^>]*>/);
     expect(html).toContain("<h2>General</h2>");
     expect(html).toContain("<h2>Status detection</h2>");
-    expect(text).toContain(
-      "Optional, but recommended. Uses local hooks to show when Codex needs approval or an answer."
-    );
+    expect(text).toContain("Optional, but recommended. Uses local hooks to show when Codex needs approval.");
+    expect(html).not.toContain("Trust 3");
     expect(html).not.toContain("<h2>SETTINGS</h2>");
     expect(html).toContain("Advanced");
     expect(html.indexOf("Advanced")).toBeLessThan(html.indexOf("Debug"));

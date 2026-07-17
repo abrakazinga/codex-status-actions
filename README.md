@@ -14,7 +14,7 @@ The `Codex Status` action can be placed on one or many keys. Tiles start in rece
 | Orange     | Codex needs an approval or answer                          |
 | Red        | The task or integration reported an error                  |
 
-Each tile is a quiet signal light: a centered status-colored circle on a transparent surface, without labels or rank numbers.
+Each tile is a quiet signal glyph on a transparent surface: a hollow idle circle, filled unread circle, smoothly expanding working segment, approval triangle, or error circle with an X. There are no labels or rank numbers.
 
 ## Requirements
 
@@ -27,10 +27,10 @@ Each tile is a quiet signal light: a centered status-colored circle on a transpa
 1. Download `com.abrakazinga.codex-status-actions.streamDeckPlugin` from the latest GitHub release.
 2. Open the file to install it in Stream Deck.
 3. Add one or more **Codex Status** actions to a profile.
-4. Select a tile in Stream Deck and click **Trust 3 Local Status Hooks** in the property inspector.
+4. Select a tile in Stream Deck and click **Trust Local Status Hooks** in the property inspector.
 5. Restart Codex once. Hook changes are never trusted silently.
 
-The plugin works without trusted hooks, but approval and question waits may remain blue instead of orange.
+Planning questions are detected from local rollout events. The plugin works without trusted hooks, but approval waits may remain blue instead of orange.
 
 ## How assignment works
 
@@ -55,8 +55,8 @@ Navigation uses the version-checked `codex://threads/<thread-id>` URL and macOS 
 Status is assembled locally from:
 
 - `thread/list` on a separate read-only Codex app-server process for task metadata
-- live JSONL rollout files under `$CODEX_HOME/sessions` for turn state
-- three optional Codex lifecycle hooks for approvals and questions
+- live JSONL rollout files under `$CODEX_HOME/sessions` for turn and planning-question state
+- three optional Codex lifecycle hooks for approval detection and compatibility
 
 The hook helper receives Codex's hook input, extracts only the task ID, turn ID, and event name in memory, and forwards that reduced object over a permission-restricted Unix socket. It never forwards or logs prompts, questions, command text, tool input, transcripts, or file paths. When Stream Deck is unavailable, the helper exits successfully so it cannot block Codex.
 

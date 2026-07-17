@@ -10,9 +10,9 @@
 
 ## Orange never appears
 
-- Ensure **Enhanced Status** is enabled.
-- Click **Trust 3 Local Status Hooks**.
-- Restart Codex after installation or any hook modification.
+- Planning questions are detected automatically from rollout events and do not require hooks.
+- For approval waits, ensure **Enhanced Status** is enabled and click **Trust Local Status Hooks**.
+- Restart Codex after installing or modifying hooks.
 - A `modified` hook state requires trusting the new hashes again.
 - Managed Codex policy may prohibit user hooks; the property inspector reports this as a hook error.
 

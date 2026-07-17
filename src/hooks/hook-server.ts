@@ -15,8 +15,7 @@ const envelopeSchema = z
     turnId: z
       .string()
       .regex(/^[A-Za-z0-9_-]{1,128}$/)
-      .optional(),
-    timestamp: z.number().int().positive()
+      .optional()
   })
   .strict();
 
@@ -78,6 +77,7 @@ export class HookServer {
     request: IncomingMessage,
     response: import("node:http").ServerResponse
   ): Promise<void> {
+    const receivedAt = Date.now();
     if (request.method !== "POST" || request.url !== "/hook") {
       response.writeHead(404).end();
       return;
@@ -101,7 +101,7 @@ export class HookServer {
         version: parsed.version,
         event: parsed.event,
         threadId: parsed.threadId,
-        timestamp: parsed.timestamp,
+        timestamp: receivedAt,
         ...(parsed.turnId ? { turnId: parsed.turnId } : {})
       };
       this.onEnvelope(envelope);

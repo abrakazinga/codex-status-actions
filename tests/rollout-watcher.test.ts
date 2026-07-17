@@ -6,6 +6,12 @@ import { mkdtemp } from "node:fs/promises";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { RolloutWatcher, type ParsedRolloutEvent } from "../src/codex/rollout-watcher";
+import {
+  initialRuntimeState,
+  persistRuntimeState,
+  reduceRuntimeState,
+  visualState
+} from "../src/status/reducer";
 import type { RolloutFileCursor } from "../src/types";
 import { waitFor } from "./helpers";
 
@@ -81,6 +87,168 @@ describe("rollout watcher", () => {
       () => events.some(({ event }) => event.type === "turn-completed"),
       "Timed out waiting for terminal rollout event"
     );
+  });
+
+  it("detects planning questions without retaining their content", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "codex-rollout-question-"));
+    const sessions = path.join(root, "sessions");
+    await mkdir(sessions, { recursive: true });
+    const file = path.join(sessions, `rollout-${threadId}.jsonl`);
+    await writeFile(file, `${rolloutLine("task_started", "question-turn")}\n`);
+
+    const events: ParsedRolloutEvent[] = [];
+    const watcher = new RolloutWatcher(
+      sessions,
+      {},
+      false,
+      (event) => events.push(event),
+      () => undefined
+    );
+    watchers.add(watcher);
+    await watcher.start();
+
+    const callId = "call-question";
+    await appendFile(
+      file,
+      `${JSON.stringify({
+        type: "response_item",
+        timestamp: new Date().toISOString(),
+        payload: {
+          type: "function_call",
+          name: "request_user_input",
+          call_id: callId,
+          arguments: "sensitive question content",
+          internal_chat_message_metadata_passthrough: { turn_id: "question-turn" }
+        }
+      })}\n`
+    );
+    await waitFor(
+      () => events.some(({ event }) => event.type === "input-requested"),
+      "Timed out waiting for planning question"
+    );
+    const requested = events.find(({ event }) => event.type === "input-requested")?.event;
+    expect(requested).toMatchObject({
+      type: "input-requested",
+      threadId,
+      turnId: "question-turn",
+      callId
+    });
+    if (requested?.type !== "input-requested") throw new Error("Planning question event was not emitted");
+    expect(typeof requested.timestamp).toBe("number");
+    expect(JSON.stringify(events)).not.toContain("sensitive question content");
+    let runtime = events.reduce(
+      (state, { event }) => reduceRuntimeState(state, event),
+      initialRuntimeState()
+    );
+    expect(visualState(runtime)).toBe("needs-user");
+
+    await appendFile(
+      file,
+      `${JSON.stringify({
+        type: "response_item",
+        timestamp: new Date().toISOString(),
+        payload: { type: "function_call_output", call_id: callId, output: "sensitive answer" }
+      })}\n`
+    );
+    await waitFor(
+      () => events.some(({ event }) => event.type === "input-resolved"),
+      "Timed out waiting for planning answer"
+    );
+    expect(events.find(({ event }) => event.type === "input-resolved")?.event).toMatchObject({
+      type: "input-resolved",
+      threadId,
+      callId
+    });
+    expect(JSON.stringify(events)).not.toContain("sensitive answer");
+    runtime = events.reduce((state, { event }) => reduceRuntimeState(state, event), initialRuntimeState());
+    expect(visualState(runtime)).toBe("working");
+  });
+
+  it("does not treat unrelated function calls as planning questions", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "codex-rollout-other-tool-"));
+    const sessions = path.join(root, "sessions");
+    await mkdir(sessions, { recursive: true });
+    const file = path.join(sessions, `rollout-${threadId}.jsonl`);
+    await writeFile(
+      file,
+      `${JSON.stringify({
+        type: "response_item",
+        timestamp: new Date().toISOString(),
+        payload: { type: "function_call", name: "some_other_tool", call_id: "call-other" }
+      })}\n`
+    );
+
+    const events: ParsedRolloutEvent[] = [];
+    const watcher = new RolloutWatcher(
+      sessions,
+      {},
+      false,
+      (event) => events.push(event),
+      () => undefined
+    );
+    watchers.add(watcher);
+    await watcher.start();
+    expect(events.map(({ event }) => event.type)).toEqual(["activity"]);
+  });
+
+  it("clears a persisted planning question when its output arrives after restart", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "codex-rollout-question-restart-"));
+    const sessions = path.join(root, "sessions");
+    await mkdir(sessions, { recursive: true });
+    const file = path.join(sessions, `rollout-${threadId}.jsonl`);
+    const callId = "call-before-restart";
+    await writeFile(
+      file,
+      `${JSON.stringify({
+        type: "response_item",
+        timestamp: new Date().toISOString(),
+        payload: { type: "function_call", name: "request_user_input", call_id: callId }
+      })}\n`
+    );
+
+    let cursors: Record<string, RolloutFileCursor> = {};
+    const beforeRestart: ParsedRolloutEvent[] = [];
+    const first = new RolloutWatcher(
+      sessions,
+      cursors,
+      false,
+      (event) => beforeRestart.push(event),
+      (next) => {
+        cursors = next;
+      }
+    );
+    watchers.add(first);
+    await first.start();
+    await first.stop();
+    const waiting = beforeRestart.reduce(
+      (state, { event }) => reduceRuntimeState(state, event),
+      initialRuntimeState()
+    );
+    const restored = initialRuntimeState(persistRuntimeState(waiting));
+    expect(visualState(restored)).toBe("needs-user");
+
+    await appendFile(
+      file,
+      `${JSON.stringify({
+        type: "response_item",
+        timestamp: new Date().toISOString(),
+        payload: { type: "function_call_output", call_id: callId }
+      })}\n`
+    );
+    const afterRestart: ParsedRolloutEvent[] = [];
+    const second = new RolloutWatcher(
+      sessions,
+      cursors,
+      false,
+      (event) => afterRestart.push(event),
+      () => undefined
+    );
+    watchers.add(second);
+    await second.start();
+
+    expect(afterRestart.map(({ event }) => event.type)).toEqual(["activity"]);
+    const resumed = afterRestart.reduce((state, { event }) => reduceRuntimeState(state, event), restored);
+    expect(visualState(resumed)).toBe("working");
   });
 
   it("replays an incomplete line after restart without losing its prefix", async () => {
@@ -219,6 +387,30 @@ describe("rollout watcher", () => {
     watchers.add(second);
     await second.start();
     expect(events.some(({ event }) => event.type === "turn-completed")).toBe(true);
+  });
+
+  it("does not emit events after it stops", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "codex-rollout-stopped-"));
+    const sessions = path.join(root, "sessions");
+    await mkdir(sessions, { recursive: true });
+    const events: ParsedRolloutEvent[] = [];
+    const watcher = new RolloutWatcher(
+      sessions,
+      {},
+      false,
+      (event) => events.push(event),
+      () => undefined
+    );
+    watchers.add(watcher);
+    await watcher.start();
+    await watcher.stop();
+
+    await writeFile(
+      path.join(sessions, `rollout-${threadId}.jsonl`),
+      `${rolloutLine("task_started", "after-stop")}\n`
+    );
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(events).toEqual([]);
   });
 });
 

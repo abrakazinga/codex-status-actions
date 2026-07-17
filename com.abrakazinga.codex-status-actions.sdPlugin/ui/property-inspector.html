@@ -27,20 +27,20 @@
         <h2>Status detection</h2>
         <label class="field-row" for="enhanced-status">
           <span>Enhanced status</span>
-          <select id="enhanced-status" title="Approval and question detection through local Codex hooks.">
+          <select id="enhanced-status" title="Approval detection through local Codex hooks.">
             <option value="enabled">Enabled</option>
             <option value="disabled">Disabled</option>
           </select>
         </label>
         <p class="section-description">
-          Optional, but recommended. Uses local hooks to show when Codex needs approval or an answer.
+          Optional, but recommended. Uses local hooks to show when Codex needs approval.
         </p>
         <div id="restart-notice" class="notice hidden">
           <strong>RESTART CODEX</strong>
           Hook configuration changed. Restart Codex once to activate it.
         </div>
         <div class="hook-actions">
-          <button id="trust-hooks" class="button primary" type="button">Trust 3 local status hooks</button>
+          <button id="trust-hooks" class="button primary" type="button">Trust local status hooks</button>
           <button id="reinstall-hooks" class="button secondary" type="button">Reinstall hooks</button>
         </div>
       </section>

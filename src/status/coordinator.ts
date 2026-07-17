@@ -31,6 +31,7 @@ type PersistSettings = (settings: GlobalSettings) => Promise<void>;
 const persistedThreadStateSchema = z.object({
   lastCompletionId: z.string().optional(),
   lastAcknowledgedCompletionId: z.string().optional(),
+  needsUser: z.boolean().optional(),
   error: z.boolean().optional(),
   changedAt: z.number().nonnegative().optional()
 });
@@ -99,13 +100,8 @@ export class StatusCoordinator {
     return (
       this.health.codexBinary === "missing" ||
       this.health.catalog === "disconnected" ||
-      this.health.rolloutWatcher === "error" ||
-      this.navigationDisabled
+      this.health.rolloutWatcher === "error"
     );
-  }
-
-  get navigationDisabled(): boolean {
-    return this.health.navigation === "error";
   }
 
   async start(): Promise<void> {
@@ -146,7 +142,7 @@ export class StatusCoordinator {
   }
 
   acknowledge(threadId: string): void {
-    this.applyEvent({ type: "acknowledged", threadId, timestamp: Date.now() });
+    this.applyEvent({ type: "acknowledged", threadId });
   }
 
   markNavigation(available: boolean, message?: string): void {
@@ -371,7 +367,7 @@ export class StatusCoordinator {
   private handleRolloutEvent({ event, baseline }: ParsedRolloutEvent): void {
     this.applyEvent(event, !baseline);
     if (baseline && event.type === "turn-completed") {
-      this.applyEvent({ type: "acknowledged", threadId: event.threadId, timestamp: event.timestamp });
+      this.applyEvent({ type: "acknowledged", threadId: event.threadId });
     }
   }
 
@@ -385,6 +381,7 @@ export class StatusCoordinator {
     const previous =
       this.runtime.get(threadId) ?? initialRuntimeState(this.settings.threadStates?.[threadId]);
     const next = reduceRuntimeState(previous, event);
+    if (next === previous) return;
     if (allowPromotion && event.type === "turn-started") {
       this.settings = {
         ...this.settings,
@@ -462,6 +459,7 @@ function normalizeSettings(settings: unknown): GlobalSettings {
         ...(state.lastAcknowledgedCompletionId
           ? { lastAcknowledgedCompletionId: state.lastAcknowledgedCompletionId }
           : {}),
+        ...(state.needsUser === undefined ? {} : { needsUser: state.needsUser }),
         ...(state.error === undefined ? {} : { error: state.error }),
         ...(state.changedAt === undefined ? {} : { changedAt: state.changedAt })
       }
