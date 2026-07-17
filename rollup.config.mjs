@@ -7,7 +7,7 @@ import path from "node:path";
 import url from "node:url";
 
 const isWatching = Boolean(process.env.ROLLUP_WATCH);
-const pluginDirectory = "com.abrakazinga.codex-status-actions.sdPlugin";
+const pluginDirectory = "com.alxbra.codex-status-actions.sdPlugin";
 const legalFiles = ["LICENSE", "NOTICE", "THIRD_PARTY_NOTICES.md"];
 const watchedPluginFiles = [
   "manifest.json",

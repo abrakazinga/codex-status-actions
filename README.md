@@ -1,6 +1,6 @@
 # Codex: Status & Actions
 
-[![CI](https://github.com/abrakazinga/codex-status-actions/actions/workflows/ci.yml/badge.svg)](https://github.com/abrakazinga/codex-status-actions/actions/workflows/ci.yml)
+[![CI](https://github.com/alxbra/codex-status-actions/actions/workflows/ci.yml/badge.svg)](https://github.com/alxbra/codex-status-actions/actions/workflows/ci.yml)
 
 An unofficial, open-source Stream Deck integration for local OpenAI Codex status, usage, and dictation on macOS.
 
@@ -28,7 +28,7 @@ The `Codex Dictation` action brings Codex forward and invokes its configured **T
 
 ## Install a release
 
-1. Download `com.abrakazinga.codex-status-actions.streamDeckPlugin` from the latest GitHub release.
+1. Download `com.alxbra.codex-status-actions.streamDeckPlugin` from the latest GitHub release.
 2. Open the file to install it in Stream Deck.
 3. Add one or more **Codex Status** actions to a profile.
 4. Select a tile in Stream Deck and click **Trust Local Status Hooks** in the property inspector.
@@ -97,7 +97,7 @@ pnpm run link
 After linking, restart the plugin during development with:
 
 ```sh
-pnpm exec streamdeck restart com.abrakazinga.codex-status-actions
+pnpm exec streamdeck restart com.alxbra.codex-status-actions
 ```
 
 Package a distributable artifact with `pnpm run pack`.

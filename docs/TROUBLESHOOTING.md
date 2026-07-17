@@ -6,7 +6,7 @@
 - Open the property inspector and inspect **Codex Binary** and **Task Catalog**.
 - If you use a non-default `CODEX_HOME`, set its absolute path in the property inspector.
 - Changing `CODEX_HOME` removes this plugin's unchanged hook declarations and helper from the previous location before initializing the new one.
-- Restart the plugin from Stream Deck or run `pnpm exec streamdeck restart com.abrakazinga.codex-status-actions` in a development checkout.
+- Restart the plugin from Stream Deck or run `pnpm exec streamdeck restart com.alxbra.codex-status-actions` in a development checkout.
 
 ## Usage shows UNAVAILABLE
 

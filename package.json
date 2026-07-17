@@ -10,7 +10,7 @@
   },
   "scripts": {
     "build": "rollup -c",
-    "watch": "rollup -c -w --watch.onEnd=\"streamdeck restart com.abrakazinga.codex-status-actions\"",
+    "watch": "rollup -c -w --watch.onEnd=\"streamdeck restart com.alxbra.codex-status-actions\"",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "format": "prettier --write .",
@@ -18,9 +18,9 @@
     "licenses:check": "node scripts/check-licenses.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
-    "validate": "streamdeck validate --no-update-check com.abrakazinga.codex-status-actions.sdPlugin",
-    "pack": "pnpm build && streamdeck pack --no-update-check --force --output release com.abrakazinga.codex-status-actions.sdPlugin",
-    "link": "streamdeck link com.abrakazinga.codex-status-actions.sdPlugin"
+    "validate": "streamdeck validate --no-update-check com.alxbra.codex-status-actions.sdPlugin",
+    "pack": "pnpm build && streamdeck pack --no-update-check --force --output release com.alxbra.codex-status-actions.sdPlugin",
+    "link": "streamdeck link com.alxbra.codex-status-actions.sdPlugin"
   },
   "dependencies": {
     "@elgato/streamdeck": "^2.1.0",
@@ -48,10 +48,10 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/abrakazinga/codex-status-actions.git"
+    "url": "git+https://github.com/alxbra/codex-status-actions.git"
   },
   "bugs": {
-    "url": "https://github.com/abrakazinga/codex-status-actions/issues"
+    "url": "https://github.com/alxbra/codex-status-actions/issues"
   },
-  "homepage": "https://github.com/abrakazinga/codex-status-actions#readme"
+  "homepage": "https://github.com/alxbra/codex-status-actions#readme"
 }

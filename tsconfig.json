@@ -11,5 +11,5 @@
     "types": ["node"]
   },
   "include": ["src/**/*.ts", "tests/**/*.ts", "vitest.config.ts"],
-  "exclude": ["node_modules", "com.abrakazinga.codex-status-actions.sdPlugin/bin"]
+  "exclude": ["node_modules", "com.alxbra.codex-status-actions.sdPlugin/bin"]
 }

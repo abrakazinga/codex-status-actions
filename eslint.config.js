@@ -4,7 +4,7 @@ import tseslint from "typescript-eslint";
 export default tseslint.config(
   {
     ignores: [
-      "com.abrakazinga.codex-status-actions.sdPlugin/bin/**",
+      "com.alxbra.codex-status-actions.sdPlugin/bin/**",
       "release/**",
       "eslint.config.js",
       "rollup.config.mjs"
@@ -29,7 +29,7 @@ export default tseslint.config(
     ...tseslint.configs.disableTypeChecked
   },
   {
-    files: ["com.abrakazinga.codex-status-actions.sdPlugin/ui/**/*.js"],
+    files: ["com.alxbra.codex-status-actions.sdPlugin/ui/**/*.js"],
     ...tseslint.configs.disableTypeChecked,
     languageOptions: {
       ...tseslint.configs.disableTypeChecked.languageOptions,
