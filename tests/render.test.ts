@@ -24,9 +24,26 @@ describe("tile renderer", () => {
   });
 
   it("renders unread as a filled circle", () => {
-    expect(decodeSvg(renderStatusTile("unread"))).toContain(
-      '<circle cx="72" cy="72" r="34" fill="#8FEA98"/>'
-    );
+    const svg = decodeSvg(renderStatusTile("unread"));
+    expect(svg).toContain('<circle cx="72" cy="72" r="34" fill="#8FEA98"/>');
+    expect(svg.match(/<circle/g)).toHaveLength(1);
+  });
+
+  it("renders unread pulse frames as a fading halo behind the unchanged glyph", () => {
+    const frames = Array.from({ length: 20 }, (_, frame) => unreadHalo(renderStatusTile("unread", frame)));
+    const compact = decodeSvg(renderStatusTile("unread", 0));
+    const midpoint = decodeSvg(renderStatusTile("unread", 10));
+    const expanded = decodeSvg(renderStatusTile("unread", 19));
+    expect(compact).toContain('<circle cx="72" cy="72" r="38" fill="#8FEA98" opacity="0.34"/>');
+    expect(midpoint).toContain('<circle cx="72" cy="72" r="72.737" fill="#8FEA98" opacity="0.161"/>');
+    expect(expanded).toContain('<circle cx="72" cy="72" r="104" fill="#8FEA98" opacity="0"/>');
+    expect(compact).toContain('<circle cx="72" cy="72" r="34" fill="#8FEA98"/>');
+    expect(expanded).toContain('<circle cx="72" cy="72" r="34" fill="#8FEA98"/>');
+    for (let frame = 1; frame < frames.length; frame++) {
+      expect(frames[frame]?.radius).toBeGreaterThan(frames[frame - 1]?.radius ?? 0);
+      expect(frames[frame]?.opacity).toBeLessThan(frames[frame - 1]?.opacity ?? 1);
+    }
+    expect(decodeSvg(renderStatusTile("unread", 20))).toBe(compact);
   });
 
   it("renders a 30-frame expanding and contracting working ring", () => {
@@ -75,6 +92,14 @@ function decodeSvg(image: string): string {
   const prefix = "data:image/svg+xml;base64,";
   expect(image.startsWith(prefix)).toBe(true);
   return Buffer.from(image.slice(prefix.length), "base64").toString("utf8");
+}
+
+function unreadHalo(image: string): { radius: number; opacity: number } {
+  const match = /<circle cx="72" cy="72" r="([\d.]+)" fill="#8FEA98" opacity="([\d.]+)"\/>/.exec(
+    decodeSvg(image)
+  );
+  expect(match).not.toBeNull();
+  return { radius: Number(match?.[1]), opacity: Number(match?.[2]) };
 }
 
 function arcMetrics(svg: string): { length: number; start: number } {

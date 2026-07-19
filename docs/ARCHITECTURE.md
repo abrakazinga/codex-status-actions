@@ -39,6 +39,8 @@ Remaining and Used are derived from `usedPercent`. Pace compares actual usage wi
 
 Persisted task start/completion/error records and sanitized `request_user_input` lifecycle records feed a deterministic reducer. Only the tool name, call ID, turn ID, and timestamp are inspected; question content is discarded. On first installation, historical completions are acknowledged so existing tasks do not all turn green. Subsequent completions and open-question state survive Stream Deck restarts.
 
+The completion timestamp also bounds the unread animation. Visible green keys render a two-second halo that expands to the full tile while fading out, without a return animation. After five minutes they switch to the unchanged static glyph and stop the animation timer. Image caching prevents other keys from being refreshed by the pulse.
+
 ### Enhanced status hooks
 
 `HookManager` adds three command hooks to the user's `$CODEX_HOME/hooks.json` without replacing unrelated entries:

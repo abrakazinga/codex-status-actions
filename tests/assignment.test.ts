@@ -11,7 +11,8 @@ function snapshot(id: string, updatedAt: number, parentThreadId?: string): Threa
       ephemeral: false,
       ...(parentThreadId ? { parentThreadId } : {})
     },
-    state: "idle"
+    state: "idle",
+    changedAt: updatedAt
   };
 }
 

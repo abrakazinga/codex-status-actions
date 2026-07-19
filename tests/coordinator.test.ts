@@ -96,8 +96,10 @@ describe("status coordinator catalog", () => {
 
     internal.handleRolloutEvent(rollout("known", "activity", 1));
     expect(changed).toHaveBeenCalledTimes(1);
+    expect(coordinator.snapshot().get("known")?.changedAt).toBe(1);
     internal.handleRolloutEvent(rollout("known", "activity", 2));
     expect(changed).toHaveBeenCalledTimes(1);
+    expect(coordinator.snapshot().get("known")?.changedAt).toBe(2);
     expect(request).not.toHaveBeenCalled();
 
     internal.handleRolloutEvent(rollout("unknown", "activity", 3));

@@ -14,7 +14,7 @@ The `Codex Status` action can be placed on one or many keys. Tiles start in rece
 | Orange     | Codex needs an approval or answer                          |
 | Red        | The task or integration reported an error                  |
 
-Each tile is a quiet signal glyph on a transparent surface: a hollow idle circle, filled unread circle, smoothly expanding working segment, approval triangle, or error circle with an X. There are no labels or rank numbers.
+Each tile is a quiet signal glyph on a transparent surface: a hollow idle circle, filled unread circle, smoothly expanding working segment, approval triangle, or error circle with an X. A new unread completion gets a fading full-tile halo for five minutes, then returns to the static green circle. There are no labels or rank numbers.
 
 The `Codex Usage` action shows remaining, used, or linear-pace percentages for the 5-hour and weekly Codex windows. It supports one large value or two stacked values, optional reset countdowns, and transparent error/loading states. Pace is green and labeled **Behind** when usage is below the linear forecast, orange and labeled **Ahead** when usage is above it, and neutral at zero.
 

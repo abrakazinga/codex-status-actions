@@ -118,7 +118,7 @@ export class StatusCoordinator {
       if (!thread) continue;
       const runtime =
         this.runtime.get(threadId) ?? initialRuntimeState(this.settings.threadStates?.[threadId]);
-      snapshots.set(threadId, { thread, state: visualState(runtime) });
+      snapshots.set(threadId, { thread, state: visualState(runtime), changedAt: runtime.changedAt });
     }
     return snapshots;
   }

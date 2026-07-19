@@ -14,10 +14,12 @@ import {
 import type { JsonValue } from "@elgato/utils";
 
 import { assignInOrder, type TilePosition } from "../assignment";
-import { DOUBLE_TAP_MS, STATUS_ACTION_UUID } from "../constants";
+import { DOUBLE_TAP_MS, STATUS_ACTION_UUID, UNREAD_PULSE_FRAMES, UNREAD_PULSE_MS } from "../constants";
+import { LoopingAnimation } from "../looping-animation";
 import { renderEmptyTile, renderIntegrationError, renderStatusTile } from "../render";
 import { RenderLoop } from "../render-loop";
 import type { StatusCoordinator } from "../status/coordinator";
+import { shouldPulseUnread } from "../status/unread-pulse";
 import { isDoubleTap, type Tap } from "../tap";
 import type { PropertyInspectorCommand, TaskNavigator, ThreadStatusSnapshot } from "../types";
 import { toErrorMessage } from "../util";
@@ -44,6 +46,11 @@ export class StatusTileAction extends SingletonAction<ActionSettings> {
     (error) => streamDeck.logger.error(`Tile rendering failed: ${toErrorMessage(error)}`)
   );
   private readonly workingAnimation = new WorkingAnimation(() => this.renderLoop.request());
+  private readonly unreadPulseAnimation = new LoopingAnimation(
+    () => this.renderLoop.request(),
+    UNREAD_PULSE_FRAMES,
+    UNREAD_PULSE_MS
+  );
   private inspectorContextId: string | undefined;
 
   constructor(private readonly navigator: TaskNavigator) {
@@ -181,15 +188,21 @@ export class StatusTileAction extends SingletonAction<ActionSettings> {
     this.unsubscribe?.();
     this.unsubscribe = undefined;
     this.workingAnimation.setActive(false);
+    this.unreadPulseAnimation.setActive(false);
   }
 
   private async renderAll(): Promise<void> {
     const coordinator = this.coordinator;
     const assignments = assignInOrder(this.positions.values(), coordinator?.snapshot().values() ?? []);
+    const now = Date.now();
     const hasWorkingTile =
       !coordinator?.unavailable &&
       [...assignments.values()].some(({ snapshot }) => snapshot?.state === "working");
+    const hasPulsingUnreadTile =
+      !coordinator?.unavailable &&
+      [...assignments.values()].some(({ snapshot }) => snapshot && shouldPulseUnread(snapshot, now));
     this.workingAnimation.setActive(hasWorkingTile);
+    this.unreadPulseAnimation.setActive(hasPulsingUnreadTile);
 
     const results = await Promise.allSettled(
       [...this.visibleActions].map(async ([contextId, key]) => {
@@ -200,7 +213,13 @@ export class StatusTileAction extends SingletonAction<ActionSettings> {
           image = renderIntegrationError();
         } else if (snapshot) {
           renderedSnapshot = snapshot;
-          image = renderStatusTile(snapshot.state, this.workingAnimation.frame);
+          const animationFrame =
+            snapshot.state === "working"
+              ? this.workingAnimation.frame
+              : shouldPulseUnread(snapshot, now)
+                ? this.unreadPulseAnimation.frame
+                : undefined;
+          image = renderStatusTile(snapshot.state, animationFrame);
         } else {
           image = renderEmptyTile();
         }

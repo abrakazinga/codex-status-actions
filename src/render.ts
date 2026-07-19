@@ -1,4 +1,4 @@
-import { WORKING_ANIMATION_FRAMES } from "./constants";
+import { UNREAD_PULSE_FRAMES, WORKING_ANIMATION_FRAMES } from "./constants";
 import { THEME } from "./theme";
 import type { ThreadVisualState } from "./types";
 
@@ -16,9 +16,9 @@ const GLYPH_COLOR = THEME.glyph;
 const WORKING_MIN_ARC = 6;
 const WORKING_MAX_ARC = 94;
 
-export function renderStatusTile(state: ThreadVisualState, workingFrame = 0): string {
+export function renderStatusTile(state: ThreadVisualState, animationFrame?: number): string {
   return toDataUri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 144 144">
-  ${renderGlyph(state, workingFrame)}
+  ${renderGlyph(state, animationFrame)}
 </svg>`);
 }
 
@@ -34,15 +34,15 @@ function toDataUri(svg: string): string {
   return `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`;
 }
 
-function renderGlyph(state: ThreadVisualState, workingFrame: number): string {
+function renderGlyph(state: ThreadVisualState, animationFrame?: number): string {
   const color = STATUS_COLORS[state];
   switch (state) {
     case "idle":
       return `<circle cx="${CENTER}" cy="${CENTER}" r="31" fill="none" stroke="${color}" stroke-width="7"/>`;
     case "unread":
-      return `<circle cx="${CENTER}" cy="${CENTER}" r="${RADIUS}" fill="${color}"/>`;
+      return renderUnreadGlyph(color, animationFrame);
     case "working": {
-      return `<path d="${workingArcPath(workingFrame)}" fill="none" stroke="${color}" stroke-width="7" stroke-linecap="round"/>`;
+      return `<path d="${workingArcPath(animationFrame ?? 0)}" fill="none" stroke="${color}" stroke-width="7" stroke-linecap="round"/>`;
     }
     case "needs-user":
       return `<path d="M72 38 L105.5 96 L38.5 96 Z" fill="${color}"/>`;
@@ -52,14 +52,24 @@ function renderGlyph(state: ThreadVisualState, workingFrame: number): string {
   }
 }
 
-function normalizeFrame(frame: number): number {
-  return (
-    ((Math.trunc(frame) % WORKING_ANIMATION_FRAMES) + WORKING_ANIMATION_FRAMES) % WORKING_ANIMATION_FRAMES
-  );
+function renderUnreadGlyph(color: string, frame?: number): string {
+  const halo = frame === undefined ? "" : unreadPulseHalo(color, frame);
+  return `${halo}<circle cx="${CENTER}" cy="${CENTER}" r="${RADIUS}" fill="${color}"/>`;
+}
+
+function unreadPulseHalo(color: string, frame: number): string {
+  const progress = normalizeFrame(frame, UNREAD_PULSE_FRAMES) / (UNREAD_PULSE_FRAMES - 1);
+  const radius = formatNumber(38 + progress * 66);
+  const opacity = formatNumber(0.34 * (1 - progress));
+  return `<circle cx="${CENTER}" cy="${CENTER}" r="${radius}" fill="${color}" opacity="${opacity}"/>\n  `;
+}
+
+function normalizeFrame(frame: number, frameCount: number): number {
+  return ((Math.trunc(frame) % frameCount) + frameCount) % frameCount;
 }
 
 function workingArc(frame: number): { length: number; start: number } {
-  const phase = normalizeFrame(frame) / WORKING_ANIMATION_FRAMES;
+  const phase = normalizeFrame(frame, WORKING_ANIMATION_FRAMES) / WORKING_ANIMATION_FRAMES;
   const isExpanding = phase < 0.5;
   const progress = easeInOutSine(isExpanding ? phase * 2 : (phase - 0.5) * 2);
   const range = WORKING_MAX_ARC - WORKING_MIN_ARC;
