@@ -7,7 +7,9 @@ export const PLUGIN_VERSION = "0.3.0";
 export const DEFAULT_ENHANCED_STATUS_ENABLED = true;
 
 export const CODEX_APP_PATH = "/Applications/ChatGPT.app/Contents/Resources/codex";
-export const CATALOG_REFRESH_MS = 15_000;
+export const CATALOG_REFRESH_MS = 1_000;
+export const CATALOG_THREAD_LIMIT = 50;
+export const CATALOG_FAILURE_BACKOFF_MS = [1_000, 2_000, 4_000, 8_000, 15_000] as const;
 export const DEFAULT_USAGE_REFRESH_SECONDS = 300;
 export const USAGE_CLOCK_TICK_MS = 60_000;
 export const DOUBLE_TAP_MS = 500;

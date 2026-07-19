@@ -19,6 +19,19 @@ describe("thread order", () => {
   it("ignores stale or replayed turn starts", () => {
     expect(promoteThreadOnNewTurn(["one", "two", "three"], "three", 10, 10)).toEqual(["one", "two", "three"]);
   });
+
+  it("excludes ephemeral and spawned subagent tasks", () => {
+    expect(
+      reconcileThreadOrder(
+        [],
+        [
+          thread("top-level", 1),
+          { ...thread("ephemeral", 3), ephemeral: true },
+          { ...thread("subagent", 2), parentThreadId: "top-level" }
+        ]
+      )
+    ).toEqual(["top-level"]);
+  });
 });
 
 function thread(id: string, updatedAt: number): ThreadRecord {

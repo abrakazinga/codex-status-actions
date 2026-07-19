@@ -2,12 +2,17 @@ import path from "node:path";
 
 import { CodexRuntime } from "../codex/runtime";
 import { RolloutWatcher, type ParsedRolloutEvent } from "../codex/rollout-watcher";
-import { CATALOG_REFRESH_MS, PLUGIN_VERSION } from "../constants";
+import {
+  CATALOG_FAILURE_BACKOFF_MS,
+  CATALOG_REFRESH_MS,
+  CATALOG_THREAD_LIMIT,
+  PLUGIN_VERSION
+} from "../constants";
 import { HookManager } from "../hooks/hook-manager";
 import { HookServer } from "../hooks/hook-server";
 import { GlobalSettingsStore } from "../settings";
 import { THEME } from "../theme";
-import { promoteThreadOnNewTurn, reconcileThreadOrder } from "../thread-order";
+import { isEligibleThread, promoteThreadOnNewTurn, reconcileThreadOrder } from "../thread-order";
 import type {
   GlobalSettings,
   HealthSnapshot,
@@ -25,6 +30,7 @@ import {
   visualState,
   type StatusEvent
 } from "./reducer";
+import { CatalogPoller } from "./catalog-poller";
 
 function initialHealth(): HealthSnapshot {
   return {
@@ -45,8 +51,9 @@ export class StatusCoordinator {
   private rolloutWatcher: RolloutWatcher | undefined;
   private hookManager: HookManager | undefined;
   private hookServer: HookServer | undefined;
-  private refreshTimer: NodeJS.Timeout | undefined;
   private persistTimer: NodeJS.Timeout | undefined;
+  private readonly catalogPoller: CatalogPoller;
+  private catalogGeneration = 0;
   private hookCount = 0;
   private started = false;
 
@@ -55,6 +62,11 @@ export class StatusCoordinator {
     private readonly appServer: CodexRuntime,
     private readonly log: (message: string) => void
   ) {
+    this.catalogPoller = new CatalogPoller(
+      () => this.refreshCatalog(),
+      CATALOG_REFRESH_MS,
+      CATALOG_FAILURE_BACKOFF_MS
+    );
     this.appServer.on("connected", () => this.updateHealth({ catalog: "connected" }));
     this.appServer.on("disconnected", () => this.updateHealth({ catalog: "disconnected" }));
     this.appServer.on("diagnostic", (message: string) => this.log(`app-server: ${message}`));
@@ -88,9 +100,9 @@ export class StatusCoordinator {
 
   async stop(): Promise<void> {
     this.started = false;
-    if (this.refreshTimer) clearInterval(this.refreshTimer);
+    this.catalogGeneration++;
+    this.catalogPoller.stop();
     if (this.persistTimer) clearTimeout(this.persistTimer);
-    this.refreshTimer = undefined;
     this.persistTimer = undefined;
     await Promise.allSettled([this.rolloutWatcher?.stop(), this.hookServer?.stop()]);
     this.rolloutWatcher = undefined;
@@ -114,6 +126,10 @@ export class StatusCoordinator {
   subscribe(listener: () => void): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
+  }
+
+  setStatusTilesVisible(visible: boolean): void {
+    this.catalogPoller.setActive(visible);
   }
 
   acknowledge(threadId: string): void {
@@ -255,10 +271,10 @@ export class StatusCoordinator {
 
     try {
       await this.appServer.start();
-      await this.refreshCatalog();
     } catch {
       this.updateHealth({ catalog: "disconnected" });
     }
+    this.catalogPoller.start();
 
     this.rolloutWatcher = new RolloutWatcher(
       path.join(this.codexHome, "sessions"),
@@ -295,40 +311,49 @@ export class StatusCoordinator {
 
     this.settings = { ...this.settings, initialized: true };
     await this.persistNow();
-    this.refreshTimer = setInterval(() => void this.refreshCatalog(), CATALOG_REFRESH_MS);
   }
 
-  private async refreshCatalog(): Promise<void> {
+  private async refreshCatalog(): Promise<boolean> {
+    const generation = this.catalogGeneration;
     try {
-      const records = await this.appServer.listThreads(200);
-      const nextIds = new Set<string>();
+      const records = await this.appServer.listThreads(CATALOG_THREAD_LIMIT);
+      if (!this.started || generation !== this.catalogGeneration) return true;
+      const nextThreads = new Map<string, ThreadRecord>();
       for (const record of records) {
-        nextIds.add(record.id);
         const runtime =
           this.runtime.get(record.id) ?? initialRuntimeState(this.settings.threadStates?.[record.id]);
         this.runtime.set(record.id, runtime);
-        this.threads.set(record.id, {
+        nextThreads.set(record.id, {
           ...record,
           updatedAt: Math.max(record.updatedAt, runtime.changedAt)
         });
       }
-      for (const id of this.threads.keys()) {
-        if (!nextIds.has(id)) this.threads.delete(id);
-      }
       const previousOrder = this.settings.threadOrder ?? [];
-      const threadOrder = reconcileThreadOrder(previousOrder, this.threads.values());
-      this.settings = { ...this.settings, threadOrder };
-      if (!sameOrder(previousOrder, threadOrder)) this.schedulePersist();
-      this.updateHealth({ catalog: "connected" });
+      const threadOrder = reconcileThreadOrder(previousOrder, nextThreads.values());
+      const catalogChanged = !sameCatalog(this.threads, nextThreads);
+      const orderChanged = !sameOrder(previousOrder, threadOrder);
+      this.threads.clear();
+      for (const [threadId, thread] of nextThreads) this.threads.set(threadId, thread);
+      if (orderChanged) {
+        this.settings = { ...this.settings, threadOrder };
+        this.schedulePersist();
+      }
+      const healthChanged = this.updateHealth({ catalog: "connected" }, false);
+      if (catalogChanged || orderChanged || healthChanged) this.emitChange();
+      return true;
     } catch {
-      this.updateHealth({ catalog: "disconnected" });
+      if (!this.started || generation !== this.catalogGeneration) return true;
+      if (this.updateHealth({ catalog: "disconnected" }, false)) this.emitChange();
+      return false;
     }
   }
 
   private handleRolloutEvent({ event, baseline }: ParsedRolloutEvent): void {
     this.applyEvent(event, !baseline);
+    const threadId = event.type === "hook" ? event.envelope.threadId : event.threadId;
+    if (!baseline && !this.threads.has(threadId)) this.catalogPoller.request();
     if (baseline && event.type === "turn-completed") {
-      this.applyEvent({ type: "acknowledged", threadId: event.threadId });
+      this.applyEvent({ type: "acknowledged", threadId });
     }
   }
 
@@ -343,20 +368,31 @@ export class StatusCoordinator {
       this.runtime.get(threadId) ?? initialRuntimeState(this.settings.threadStates?.[threadId]);
     const next = reduceRuntimeState(previous, event);
     if (next === previous) return;
-    if (allowPromotion && event.type === "turn-started") {
+    const previousVisualState = visualState(previous);
+    let orderChanged = false;
+    const thread = this.threads.get(threadId);
+    if (allowPromotion && event.type === "turn-started" && (!thread || isEligibleThread(thread))) {
+      const previousOrder = this.settings.threadOrder ?? [];
+      const threadOrder = promoteThreadOnNewTurn(
+        previousOrder,
+        threadId,
+        event.timestamp,
+        previous.changedAt
+      );
+      orderChanged = !sameOrder(previousOrder, threadOrder);
       this.settings = {
         ...this.settings,
-        threadOrder: promoteThreadOnNewTurn(
-          this.settings.threadOrder ?? [],
-          threadId,
-          event.timestamp,
-          previous.changedAt
-        )
+        threadOrder
       };
     }
     this.runtime.set(threadId, next);
     this.schedulePersist();
-    this.emitChange();
+    const observable = Boolean(
+      thread && isEligibleThread(thread) && this.settings.threadOrder?.includes(threadId)
+    );
+    if (observable && (orderChanged || previousVisualState !== visualState(next))) {
+      this.emitChange();
+    }
   }
 
   private async refreshHookStatus(retryAfterRestart = false): Promise<void> {
@@ -375,9 +411,14 @@ export class StatusCoordinator {
     return this.hookManager?.uninstall(process.cwd());
   }
 
-  private updateHealth(patch: Partial<HealthSnapshot>): void {
+  private updateHealth(patch: Partial<HealthSnapshot>, emit = true): boolean {
+    const changed = Object.entries(patch).some(
+      ([key, value]) => this.health[key as keyof HealthSnapshot] !== value
+    );
+    if (!changed) return false;
     this.health = { ...this.health, ...patch };
-    this.emitChange();
+    if (emit) this.emitChange();
+    return true;
   }
 
   private emitChange(): void {
@@ -404,4 +445,22 @@ export class StatusCoordinator {
 
 function sameOrder(left: readonly string[], right: readonly string[]): boolean {
   return left.length === right.length && left.every((id, index) => id === right[index]);
+}
+
+function sameCatalog(
+  left: ReadonlyMap<string, ThreadRecord>,
+  right: ReadonlyMap<string, ThreadRecord>
+): boolean {
+  if (left.size !== right.size) return false;
+  for (const [threadId, next] of right) {
+    const previous = left.get(threadId);
+    if (
+      !previous ||
+      previous.ephemeral !== next.ephemeral ||
+      previous.parentThreadId !== next.parentThreadId
+    ) {
+      return false;
+    }
+  }
+  return true;
 }

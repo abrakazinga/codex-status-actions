@@ -51,8 +51,10 @@ export class StatusTileAction extends SingletonAction<ActionSettings> {
   }
 
   attach(coordinator: StatusCoordinator): void {
+    this.coordinator?.setStatusTilesVisible(false);
     this.unsubscribe?.();
     this.coordinator = coordinator;
+    coordinator.setStatusTilesVisible(this.visibleActions.size > 0);
     this.unsubscribe = coordinator.subscribe(() => {
       this.renderLoop.request();
       void this.sendInspectorSnapshot();
@@ -71,6 +73,7 @@ export class StatusTileAction extends SingletonAction<ActionSettings> {
       row: coordinates.row,
       column: coordinates.column
     });
+    this.coordinator?.setStatusTilesVisible(true);
     this.renderLoop.request();
   }
 
@@ -81,6 +84,7 @@ export class StatusTileAction extends SingletonAction<ActionSettings> {
     this.renderedImages.delete(event.action.id);
     this.presses.delete(event.action.id);
     this.previousTaps.delete(event.action.id);
+    this.coordinator?.setStatusTilesVisible(this.visibleActions.size > 0);
     this.renderLoop.request();
   }
 
@@ -173,6 +177,7 @@ export class StatusTileAction extends SingletonAction<ActionSettings> {
   }
 
   dispose(): void {
+    this.coordinator?.setStatusTilesVisible(false);
     this.unsubscribe?.();
     this.unsubscribe = undefined;
     this.workingAnimation.setActive(false);

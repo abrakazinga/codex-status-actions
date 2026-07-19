@@ -25,6 +25,8 @@ Stream Deck dictation key ─ dictation controller ─ macOS adapter ─ Codex s
 
 The separate process cannot observe the private in-memory status of tasks owned by Codex Desktop. It is therefore used for metadata, not live state, and never starts, resumes, or modifies a task.
 
+While at least one Status key is visible, the coordinator requests the 50 most recent tasks once per second. Requests are single-flight, failures back off to 15 seconds, and activity for an unknown rollout task requests an immediate refresh. Identical catalog and health results do not notify renderers; polling stops when no Status key is visible.
+
 ### Usage limits
 
 `AppServerClient` reads both the legacy rate-limit bucket and the multi-bucket map. `UsageProvider` then normalizes supported windows by duration rather than assuming primary means 5-hour or secondary means weekly. It polls only while Usage keys are visible, coalesces concurrent reads, and uses the shortest selected visible refresh interval. Sparse `account/rateLimits/updated` notifications trigger a debounced snapshot read instead of being merged directly.
