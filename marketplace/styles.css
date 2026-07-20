@@ -480,6 +480,25 @@ h1 {
   font-size: 96px;
 }
 
+.readme-hero-layout h1 {
+  position: absolute;
+  top: 112px;
+  width: 100%;
+  max-width: none;
+  color: var(--ink);
+  font-size: 72px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  text-align: center;
+}
+
+.readme-hero-layout .deck {
+  top: 300px;
+  right: auto;
+  left: 550px;
+}
+
 .deck {
   position: absolute;
   top: 228px;

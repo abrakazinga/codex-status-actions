@@ -7,6 +7,7 @@ Editable sources and exported assets for the Elgato Marketplace listing.
 Open `index.html` with one of these query values:
 
 - `?slide=thumbnail`
+- `?slide=readmeHero`
 - `?slide=status`
 - `?slide=usage`
 - `?slide=dictation`
@@ -24,6 +25,7 @@ The renderer uses an installed Google Chrome or Brave Browser and writes static 
 | ----------------- | ---------: |
 | App icon          |  288 × 288 |
 | Thumbnail         | 1920 × 960 |
+| README hero       | 1920 × 960 |
 | Status gallery    | 1920 × 960 |
 | Usage gallery     | 1920 × 960 |
 | Dictation gallery | 1920 × 960 |

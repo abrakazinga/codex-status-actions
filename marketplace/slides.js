@@ -21,7 +21,7 @@ function statusItem(state, label) {
   return `<div class="status-item">${key(GLYPHS[state])}<span class="status-label">${label}</span></div>`;
 }
 
-function thumbnail() {
+function deckMockup() {
   const keys = [
     key(`<div class="mini-usage"><span>5H</span><strong>82%</strong></div>`),
     key(`<div class="mini-usage"><span>WK</span><strong>96%</strong></div>`),
@@ -41,6 +41,10 @@ function thumbnail() {
     key("", "deck-empty"),
     key("", "deck-empty")
   ];
+  return `<div class="deck" aria-label="Stream Deck-style grid showing plugin actions"><div class="deck-grid">${keys.join("")}</div></div>`;
+}
+
+function thumbnail() {
   return `<section class="slide thumbnail-layout">
     ${chrome()}
     <div class="hero-copy">
@@ -48,7 +52,14 @@ function thumbnail() {
       <h1>Keep Codex within reach.</h1>
       <p class="lede">Live task status, usage, and dictation—right on your keys.</p>
     </div>
-    <div class="deck" aria-label="Stream Deck-style grid showing plugin actions"><div class="deck-grid">${keys.join("")}</div></div>
+    ${deckMockup()}
+  </section>`;
+}
+
+function readmeHero() {
+  return `<section class="slide readme-hero-layout">
+    <h1>Codex Status &amp; Actions</h1>
+    ${deckMockup()}
   </section>`;
 }
 
@@ -115,7 +126,7 @@ function icon() {
   return `<section class="slide icon-layout"><div class="icon-mark"><svg viewBox="0 0 212 212" aria-hidden="true"><circle class="icon-spinner" cx="106" cy="106" r="52"/></svg></div></section>`;
 }
 
-const slides = { thumbnail, status, usage, dictation, icon };
+const slides = { thumbnail, readmeHero, status, usage, dictation, icon };
 const name = new URLSearchParams(window.location.search).get("slide") || "thumbnail";
 const renderer = Object.prototype.hasOwnProperty.call(slides, name) ? slides[name] : thumbnail;
 document.getElementById("slide").outerHTML = renderer();

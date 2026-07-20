@@ -25,6 +25,7 @@ mkdirSync(output, { recursive: true });
 const assets = [
   ["app-icon", "icon", 288, 288],
   ["thumbnail", "thumbnail", 1920, 960],
+  ["readme-hero", "readmeHero", 1920, 960],
   ["gallery-01-status", "status", 1920, 960],
   ["gallery-02-usage", "usage", 1920, 960],
   ["gallery-03-dictation", "dictation", 1920, 960]
