@@ -117,4 +117,5 @@ function icon() {
 
 const slides = { thumbnail, status, usage, dictation, icon };
 const name = new URLSearchParams(window.location.search).get("slide") || "thumbnail";
-document.getElementById("slide").outerHTML = (slides[name] || thumbnail)();
+const renderer = Object.prototype.hasOwnProperty.call(slides, name) ? slides[name] : thumbnail;
+document.getElementById("slide").outerHTML = renderer();
