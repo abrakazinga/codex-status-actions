@@ -1,4 +1,4 @@
-# Codex: Status & Actions
+# Codex Status & Actions
 
 [![CI](https://github.com/alxbra/codex-status-actions/actions/workflows/ci.yml/badge.svg)](https://github.com/alxbra/codex-status-actions/actions/workflows/ci.yml)
 

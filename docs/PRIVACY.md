@@ -1,6 +1,6 @@
 # Privacy
 
-Codex: Status & Actions runs locally and does not provide its own network service, analytics, crash reporting, or telemetry.
+Codex Status & Actions runs locally and does not provide its own network service, analytics, crash reporting, or telemetry.
 
 ## Data read
 

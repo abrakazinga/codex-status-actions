@@ -224,7 +224,7 @@ export class HookManager {
 
 function helperScript(): string {
   return `#!/bin/sh
-# Apache-2.0 helper installed by Codex: Status & Actions.
+# Apache-2.0 helper installed by Codex Status & Actions.
 # It reduces Codex hook input to identifiers and an event name before forwarding locally.
 set +e
 payload=$(/usr/bin/head -c ${String(MAX_HOOK_PAYLOAD_BYTES + 1)})

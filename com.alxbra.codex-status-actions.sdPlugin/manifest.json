@@ -1,5 +1,5 @@
 {
-  "Name": "Codex: Status & Actions",
+  "Name": "Codex Status & Actions",
   "Version": "0.3.0.0",
   "Author": "alxbra",
   "Actions": [
@@ -58,7 +58,7 @@
       ]
     }
   ],
-  "Category": "Codex: Status & Actions",
+  "Category": "Codex Status & Actions",
   "CategoryIcon": "imgs/plugin/category-icon",
   "CodePath": "bin/plugin.js",
   "Description": "Monitor OpenAI Codex from your Stream Deck. Unofficial community integration.",

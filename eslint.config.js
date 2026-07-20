@@ -25,8 +25,25 @@ export default tseslint.config(
     }
   },
   {
-    files: ["scripts/**/*.mjs"],
-    ...tseslint.configs.disableTypeChecked
+    files: ["scripts/**/*.mjs", "marketplace/**/*.mjs"],
+    ...tseslint.configs.disableTypeChecked,
+    languageOptions: {
+      ...tseslint.configs.disableTypeChecked.languageOptions,
+      globals: { console: "readonly" }
+    }
+  },
+  {
+    files: ["marketplace/**/*.js"],
+    ...tseslint.configs.disableTypeChecked,
+    languageOptions: {
+      ...tseslint.configs.disableTypeChecked.languageOptions,
+      sourceType: "script",
+      globals: {
+        document: "readonly",
+        URLSearchParams: "readonly",
+        window: "readonly"
+      }
+    }
   },
   {
     files: ["com.alxbra.codex-status-actions.sdPlugin/ui/**/*.js"],

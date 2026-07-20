@@ -18,5 +18,3 @@ Include the plugin version, macOS version, Stream Deck version, Codex CLI versio
 - Hook declarations require explicit trust of their current hash.
 - The hook helper always fails open so Stream Deck availability cannot block Codex.
 - Existing Codex hooks are preserved; modified owned declarations are not overwritten during cleanup.
-
-The plugin is not an approval controller and cannot approve or deny Codex actions.
